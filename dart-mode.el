@@ -20,6 +20,74 @@
 
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
 
+
+;;; CC configuration
+
+(c-lang-defconst c-primitive-type-kwds
+  dart '("Dynamic" "void" "num" "int" "double" "bool" "var"))
+
+(c-lang-defconst c-class-decl-kwds
+  dart '("class" "interface"))
+
+;; Don't put these in c-modifier-kwds because they can be used without a type
+;; following them.
+(c-lang-defconst c-typeless-decl-kwds
+  dart '("final" "static"))
+
+(c-lang-defconst c-modifier-kwds
+  dart '("factory" "const"))
+
+(c-lang-defconst c-other-decl-kwds
+  dart nil)
+
+(c-lang-defconst c-decl-hangon-kwds
+  dart '("get" "set"))
+
+(c-lang-defconst c-postfix-decl-spec-kwds
+  dart '("extends" "implements"))
+
+(c-lang-defconst c-type-list-kwds
+  dart '("new" "const"))
+
+(c-lang-defconst c-ref-list-kwds
+  dart nil)
+
+(c-lang-defconst c-block-stmt-2-kwds
+  dart '("for" "if" "switch" "while" "catch"))
+
+(c-lang-defconst c-simple-stmt-kwds
+  dart '("break" "continue" "return" "throw"))
+
+(c-lang-defconst c-before-label-kwds
+  dart '("break" "continue"))
+
+(c-lang-defconst c-inexpr-class-kwds
+  dart nil)
+
+(c-lang-defconst c-inexpr-brace-list-kwds
+  dart nil)
+
+(c-lang-defconst c-other-kwds
+  dart '("in"))
+
+(c-lang-defconst c-cast-parens
+  dart nil)
+
+(c-lang-defconst c-opt-type-suffix-key
+  dart nil)
+
+(c-lang-defconst c-recognize-typeless-decls
+  dart t)
+
+(c-lang-defconst c-recognize-<>-arglists
+  dart t)
+
+(c-lang-defconst c-opt-postfix-decl-spec-key
+  dart nil)
+
+
+;;; Boilerplate font-lock piping
+
 (defcustom dart-font-lock-extra-types nil
   "*List of extra types (aside from the type keywords) to recognize in DART mode.
 Each list item should be a regexp matching a single identifier.")
