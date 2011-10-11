@@ -110,6 +110,15 @@
                        ((arglist-cont arglist-cont-nonempty) 'brace-list-entry)
                        (arglist-close 'brace-list-close))))))
 
+             ;; Handle indentifier keys in maps
+             (when (eq (caar ad-return-value) 'label)
+               (save-excursion
+                 (c-safe
+                   (c-backward-comments)
+                   (if (= (char-before) ?\{) 'brace-list-intro
+                     (backward-up-list)
+                     (when (= (char-after) ?\{) 'brace-list-entry)))))
+
              (caar ad-return-value))))))
 
 
