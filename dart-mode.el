@@ -4,7 +4,7 @@
 
 ;; Author: Nathan Weizenbaum
 ;; URL: http://code.google.com/p/dart-mode
-;; Version 0.0
+;; Version 0.1
 ;; Keywords: language
 
 ;;; Commentary:
