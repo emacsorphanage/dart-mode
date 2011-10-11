@@ -13,6 +13,12 @@
 ;; your .emacs file:
 ;;
 ;; (require 'dart-mode)
+;;
+;; Known bugs:
+;;
+;; * Multiline strings using """ and ''' are not recognized. They fontify
+;;   correctly, but only because they look like three strings in a row.
+;; * In a map with identifier keys, the first key is fontified like a label.
 
 ;;; Code:
 
