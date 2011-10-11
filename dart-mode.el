@@ -154,38 +154,68 @@
 
 ;;; CC indentation support
 
+(defun dart-in-block-p (syntax-guess)
+  "Return whether or not the immediately enclosing {} block is a code block.
+The other option, of course, is a map literal.
+
+SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
+  (save-excursion
+    (c-safe
+      (backward-up-list)
+      (when (= (char-after) ?\{)
+        (c-backward-comments)
+        (or
+         ;; Both anonymous and named functions have a ")" immediately before the
+         ;; code block.
+         (= (char-before) ?\))
+         ;; CC is good at figuring out if we're in a class.
+         (assq 'inclass syntax-guess))))))
+
 (defadvice c-guess-basic-syntax (after dart-guess-basic-syntax activate)
   (when (c-major-mode-is 'dart-mode)
-    (setf (caar ad-return-value)
-          (save-excursion
-            (beginning-of-line)
+    (let* ((syntax (car (last ad-return-value)))
+           (type (car syntax)))
+      (save-excursion
+        (beginning-of-line)
 
-            (or
-             ;; Handle array literal indentation
-             (when (memq (caar ad-return-value)
-                         '(arglist-intro
-                           arglist-cont
-                           arglist-cont-nonempty
-                           arglist-close))
-               (save-excursion
-                 (c-safe
-                   (backward-up-list)
-                   (when (= (char-after) ?\[)
-                     (case (caar ad-return-value)
-                       (arglist-intro 'brace-list-intro)
-                       ((arglist-cont arglist-cont-nonempty) 'brace-list-entry)
-                       (arglist-close 'brace-list-close))))))
+        (or
+         ;; Handle array literal indentation
+         (when (memq type
+                     '(arglist-intro
+                       arglist-cont
+                       arglist-cont-nonempty
+                       arglist-close))
+           (save-excursion
+             (c-safe
+               (backward-up-list)
+               (when (= (char-after) ?\[)
+                 (setq ad-return-value
+                       `((,(case type
+                             (arglist-intro 'brace-list-intro)
+                             ((arglist-cont arglist-cont-nonempty) 'brace-list-entry)
+                             (arglist-close 'brace-list-close))
+                          ,(cadr syntax))))
+                 t))))
 
-             ;; Handle indentifier keys in maps
-             (when (eq (caar ad-return-value) 'label)
-               (save-excursion
-                 (c-safe
-                   (c-backward-comments)
-                   (if (= (char-before) ?\{) 'brace-list-intro
-                     (backward-up-list)
-                     (when (= (char-after) ?\{) 'brace-list-entry)))))
-
-             (caar ad-return-value))))))
+         ;; Handle map literal indentation
+         (when (and (memq type '(label statement-block-intro statement-cont statement block-close))
+                    (not (dart-in-block-p ad-return-value)))
+           (save-excursion
+             (c-safe
+               (c-backward-comments)
+               ;; Completely reset ad-return-value here because otherwise it
+               ;; gets super-screwy.
+               (if (= (char-before) ?\{)
+                   (progn
+                     (back-to-indentation)
+                     (setq ad-return-value `((brace-list-intro ,(point))))
+                     t)
+                 (backward-up-list)
+                 (when (= (char-after) ?\{)
+                   (c-forward-comments)
+                   (back-to-indentation)
+                   (setq ad-return-value `((brace-list-entry ,(point))))
+                   t))))))))))
 
 
 ;;; Boilerplate font-lock piping
