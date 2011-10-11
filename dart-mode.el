@@ -23,6 +23,7 @@
 ;;; Code:
 
 (require 'cc-mode)
+(eval-when-compile (require 'cl))
 
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
 
