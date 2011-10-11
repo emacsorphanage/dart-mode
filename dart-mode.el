@@ -163,6 +163,7 @@ Key bindings:
   (interactive)
   (kill-all-local-variables)
   (c-initialize-cc-mode t)
+  (set-syntax-table dart-mode-syntax-table)
   (setq major-mode 'dart-mode
         mode-name "Dart")
   (c-init-language-vars dart-mode)
