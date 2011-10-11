@@ -24,7 +24,7 @@
 ;;; CC configuration
 
 (c-lang-defconst c-primitive-type-kwds
-  dart '("Dynamic" "void" "num" "int" "double" "bool" "var"))
+  dart '("Dynamic" "void" "num" "int" "double" "bool"))
 
 (c-lang-defconst c-class-decl-kwds
   dart '("class" "interface"))
@@ -32,7 +32,7 @@
 ;; Don't put these in c-modifier-kwds because they can be used without a type
 ;; following them.
 (c-lang-defconst c-typeless-decl-kwds
-  dart '("final" "static"))
+  dart '("final" "static" "var"))
 
 (c-lang-defconst c-modifier-kwds
   dart '("factory" "const"))
