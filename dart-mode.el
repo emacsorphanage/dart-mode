@@ -23,6 +23,69 @@
 
 ;;; CC configuration
 
+(c-lang-defconst c-symbol-start
+  dart (concat "[" c-alpha "_]"))
+
+(c-lang-defconst c-after-id-concat-ops
+  dart nil)
+
+(c-lang-defconst c-multiline-string-start-char
+  dart ?@)
+
+(c-lang-defconst c-opt-cpp-prefix
+  dart "\\s *#\\s *")
+
+(c-lang-defconst c-cpp-message-directives
+  dart nil)
+
+(c-lang-defconst c-cpp-include-directives
+  dart nil)
+
+(c-lang-defconst c-opt-cpp-macro-define
+  dart nil)
+
+(c-lang-defconst c-cpp-expr-directives
+  dart '("import" "source" "library" "resource"))
+
+(c-lang-defconst c-cpp-expr-functions
+  dart nil)
+
+(c-lang-defconst c-operators
+  dart `((prefix "#")
+         ,@(c-lang-const c-identifier-ops)
+         (postfix-if-paren "<" ">")
+         (prefix "super")
+         (left-assoc ".")
+         (postfix "++" "--" "[" "]" "(" ")")
+         (unary "++" "--" "+" "-" "!" "~" "negate" "new" "const")
+         (left-assoc "*" "/" "%")
+         (left-assoc "+" "-")
+         (left-assoc "<<" ">>" ">>>")
+         (left-assoc "<" ">" "<=" ">=")
+         (left-assoc "==" "!=" "===" "!==" "is" "is!")
+         (left-assoc "&")
+         (left-assoc "^")
+         (left-assoc "|")
+         (left-assoc "&&")
+         (left-assoc "||")
+         (right-assoc-sequence "?" ":")
+         (left-assoc "=>")
+         (right-assoc ,@(c-lang-const c-assignment-operators))
+         (left-assoc ",")))
+
+(c-lang-defconst c-overloadable-operators
+  dart '("==" "<" ">" "<=" ">=" "-" "+" "*" "/" "%" "|" "^" "&"
+         "<<" ">>" ">>>" "[]=" "[]" "~" "negate"))
+
+(c-lang-defconst c-opt-op-identifier-prefix
+  dart (c-make-keywords-re t '("operator")))
+
+(c-lang-defconst c-doc-comment-start-regexp
+  dart nil)
+
+(c-lang-defconst c-paragraph-start
+  dart "$")
+
 (c-lang-defconst c-primitive-type-kwds
   dart '("Dynamic" "void" "num" "int" "double" "bool"))
 
@@ -32,10 +95,10 @@
 ;; Don't put these in c-modifier-kwds because they can be used without a type
 ;; following them.
 (c-lang-defconst c-typeless-decl-kwds
-  dart '("final" "static" "var"))
+  dart '("abstract" "const" "factory" "final" "operator" "static" "typedef" "var"))
 
 (c-lang-defconst c-modifier-kwds
-  dart '("factory" "const"))
+  dart nil)
 
 (c-lang-defconst c-other-decl-kwds
   dart nil)
@@ -47,7 +110,7 @@
   dart '("extends" "implements"))
 
 (c-lang-defconst c-type-list-kwds
-  dart '("new" "const"))
+  dart '("new" "const" "is" "is!"))
 
 (c-lang-defconst c-ref-list-kwds
   dart nil)
@@ -82,8 +145,11 @@
 (c-lang-defconst c-recognize-<>-arglists
   dart t)
 
-(c-lang-defconst c-opt-postfix-decl-spec-key
-  dart nil)
+(c-lang-defconst c-opt-postfix-decl-spec-kwds
+  dart '("native"))
+
+(c-lang-defconst c-opt-postfix-decl-spec-kwds
+  dart '("native"))
 
 
 ;;; CC indentation support
