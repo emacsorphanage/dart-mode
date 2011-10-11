@@ -86,6 +86,33 @@
   dart nil)
 
 
+;;; CC indentation support
+
+(defadvice c-guess-basic-syntax (after dart-guess-basic-syntax activate)
+  (when (c-major-mode-is 'dart-mode)
+    (setf (caar ad-return-value)
+          (save-excursion
+            (beginning-of-line)
+
+            (or
+             ;; Handle array literal indentation
+             (when (memq (caar ad-return-value)
+                         '(arglist-intro
+                           arglist-cont
+                           arglist-cont-nonempty
+                           arglist-close))
+               (save-excursion
+                 (c-safe
+                   (backward-up-list)
+                   (when (= (char-after) ?\[)
+                     (case (caar ad-return-value)
+                       (arglist-intro 'brace-list-intro)
+                       ((arglist-cont arglist-cont-nonempty) 'brace-list-entry)
+                       (arglist-close 'brace-list-close))))))
+
+             (caar ad-return-value))))))
+
+
 ;;; Boilerplate font-lock piping
 
 (defcustom dart-font-lock-extra-types nil
