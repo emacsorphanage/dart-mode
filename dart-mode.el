@@ -23,6 +23,7 @@
 ;;; Code:
 
 (require 'cc-mode)
+(require 'cc-langs)
 (eval-when-compile (require 'cl))
 
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
@@ -111,13 +112,13 @@
   dart nil)
 
 (c-lang-defconst c-decl-hangon-kwds
-  dart '("get" "set"))
+  dart '("get" "set" "native"))
 
 (c-lang-defconst c-postfix-decl-spec-kwds
-  dart '("extends" "implements"))
+  dart '("extends" "implements" "factory"))
 
 (c-lang-defconst c-type-list-kwds
-  dart '("new" "const" "is" "is!"))
+  dart '("new" "const" "is" "is!" "extends" "implements" "factory"))
 
 (c-lang-defconst c-ref-list-kwds
   dart nil)
@@ -142,6 +143,10 @@
 
 (c-lang-defconst c-cast-parens
   dart nil)
+
+(c-lang-defconst c-block-prefix-disallowed-chars
+  dart (set-difference (c-lang-const c-block-prefix-disallowed-chars)
+                       '(?\" ?')))
 
 (c-lang-defconst c-opt-type-suffix-key
   dart nil)
