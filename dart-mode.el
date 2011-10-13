@@ -296,4 +296,4 @@ Key bindings:
 
 (provide 'dart-mode)
 
-;; dart-mode.el ends here
+;;; dart-mode.el ends here
