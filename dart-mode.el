@@ -32,7 +32,6 @@
 ;; * Multiline strings using """ and ''' are not recognized. They fontify
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
-;; * else blocks are indented incorrectly.
 ;; * Optional arguments aren't always fontified correctly.
 ;; * =>-style methods that span multiple lines can screw up indentation and
 ;;   brace matching.
@@ -197,6 +196,8 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
          ;; Both anonymous and named functions have a ")" immediately before the
          ;; code block.
          (= (char-before) ?\))
+         ;; "else" is the only keyword that comes immediately before a block.
+         (looking-back "\\<else\\>")
          ;; CC is good at figuring out if we're in a class.
          (assq 'inclass syntax-guess))))))
 
