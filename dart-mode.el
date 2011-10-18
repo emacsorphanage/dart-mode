@@ -35,6 +35,7 @@
 ;; * Optional arguments aren't always fontified correctly.
 ;; * =>-style methods that span multiple lines can screw up indentation and
 ;;   brace matching.
+;; * Named constructors aren't fontified correctly.
 
 ;;; Code:
 
