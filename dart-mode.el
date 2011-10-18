@@ -32,8 +32,6 @@
 ;; * Multiline strings using """ and ''' are not recognized. They fontify
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
-;; * =>-style methods that span multiple lines can screw up indentation and
-;;   brace matching.
 ;; * Named constructors aren't fontified correctly.
 
 ;;; Code:
@@ -192,6 +190,13 @@ The other option, of course, is a map literal.
 SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
   (save-excursion
     (c-safe
+      ;; If we're in a continued statement within a class, we want to know we're
+      ;; in a class so we can return true.
+      (when (eq 'statement-cont (caar syntax-guess))
+        (save-excursion
+          (c-beginning-of-statement-1 nil t t)
+          (setq syntax-guess (c-guess-basic-syntax))))
+
       (backward-up-list)
       (when (= (char-after) ?\{)
         (c-backward-comments)
