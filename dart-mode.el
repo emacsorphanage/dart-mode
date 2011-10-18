@@ -32,7 +32,6 @@
 ;; * Multiline strings using """ and ''' are not recognized. They fontify
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
-;; * Optional arguments aren't always fontified correctly.
 ;; * =>-style methods that span multiple lines can screw up indentation and
 ;;   brace matching.
 ;; * Named constructors aren't fontified correctly.
@@ -157,6 +156,9 @@
 
 (c-lang-defconst c-other-kwds
   dart '("in"))
+
+(c-lang-defconst c-decl-prefix-re
+  dart "\\([\{\}\([;,<]+\\)")
 
 (c-lang-defconst c-cast-parens
   dart nil)
