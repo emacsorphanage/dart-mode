@@ -33,6 +33,9 @@
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
 ;; * else blocks are indented incorrectly.
+;; * Optional arguments aren't always fontified correctly.
+;; * =>-style methods that span multiple lines can screw up indentation and
+;;   brace matching.
 
 ;;; Code:
 
