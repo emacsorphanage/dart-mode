@@ -170,6 +170,12 @@
   dart (set-difference (c-lang-const c-block-prefix-disallowed-chars)
                        '(?\" ?')))
 
+(c-lang-defconst c-type-decl-prefix-key
+  dart "\\(\(\\)\\([^=]\\|$\\)")
+
+(c-lang-defconst c-after-suffixed-type-decl-key
+  dart (concat (c-lang-const c-after-suffixed-type-decl-key) "\\|:"))
+
 (c-lang-defconst c-opt-type-suffix-key
   dart nil)
 
