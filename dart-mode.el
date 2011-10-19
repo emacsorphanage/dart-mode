@@ -190,6 +190,9 @@
 
 (c-add-style "dart" dart-c-style)
 
+(defvar dart-mode-map (c-make-inherited-keymap)
+  "Keymap used in dart-mode buffers.")
+
 
 ;;; CC indentation support
 
@@ -310,6 +313,7 @@ Key bindings:
   (set-syntax-table dart-mode-syntax-table)
   (setq major-mode 'dart-mode
         mode-name "Dart")
+  (use-local-map dart-mode-map)
   (c-init-language-vars dart-mode)
   (let ((c-default-style '((dart-mode . "dart"))))
     (c-common-init 'dart-mode))
