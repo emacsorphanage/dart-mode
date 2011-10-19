@@ -36,6 +36,7 @@
 ;; * String interpolation isn't fontified as Dart.
 ;; * Methods and constructors without return types aren't fontified correctly.
 ;; * Untyped parameters aren't fontified correctly.
+;; * Member initializers tend to screw with indentation.
 
 ;;; Code:
 
