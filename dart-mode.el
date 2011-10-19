@@ -218,8 +218,9 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
          ;; Both anonymous and named functions have a ")" immediately before the
          ;; code block.
          (= (char-before) ?\))
-         ;; "else" is the only keyword that comes immediately before a block.
-         (looking-back "\\<else\\>")
+         ;; "else" and "try" are the only keywords that come immediately before
+         ;; a block.
+         (looking-back "\\<\\(else\\|try\\)\\>")
          ;; CC is good at figuring out if we're in a class.
          (assq 'inclass syntax-guess))))))
 
