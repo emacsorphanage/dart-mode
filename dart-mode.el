@@ -190,7 +190,8 @@
     (c-basic-offset . 2)
     (indent-tabs-mode . nil)
     (fill-column . 80)
-    (c-offsets-alist . ((arglist-intro . +))))
+    (c-offsets-alist . ((arglist-intro . +)
+                        (arglist-cont-nonempty . ++))))
   "The default Dart styles.")
 
 (c-add-style "dart" dart-c-style)
