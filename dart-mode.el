@@ -180,6 +180,16 @@
 (c-lang-defconst c-opt-postfix-decl-spec-kwds
   dart '("native"))
 
+(defconst dart-c-style
+  '("java"
+    (c-basic-offset . 2)
+    (indent-tabs-mode . nil)
+    (fill-column . 80)
+    (c-offsets-alist . ((arglist-intro . +))))
+  "The default Dart styles.")
+
+(c-add-style "dart" dart-c-style)
+
 
 ;;; CC indentation support
 
@@ -301,7 +311,8 @@ Key bindings:
   (setq major-mode 'dart-mode
         mode-name "Dart")
   (c-init-language-vars dart-mode)
-  (c-common-init 'dart-mode)
+  (let ((c-default-style '((dart-mode . "dart"))))
+    (c-common-init 'dart-mode))
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
   (c-update-modeline))
