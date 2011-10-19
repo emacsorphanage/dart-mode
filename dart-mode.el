@@ -32,7 +32,6 @@
 ;; * Multiline strings using """ and ''' are not recognized. They fontify
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
-;; * Named constructors aren't fontified correctly.
 
 ;;; Code:
 
@@ -47,6 +46,9 @@
 
 (c-lang-defconst c-symbol-start
   dart (concat "[" c-alpha "_]"))
+
+(c-lang-defconst c-identifier-ops
+  dart nil)
 
 (c-lang-defconst c-after-id-concat-ops
   dart nil)
@@ -74,7 +76,6 @@
 
 (c-lang-defconst c-operators
   dart `((prefix "#")
-         ,@(c-lang-const c-identifier-ops)
          (postfix-if-paren "<" ">")
          (prefix "super")
          (left-assoc ".")
