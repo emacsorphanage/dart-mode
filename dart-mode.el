@@ -241,7 +241,7 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
     (let* ((syntax (car (last ad-return-value)))
            (type (car syntax)))
       (save-excursion
-        (beginning-of-line)
+        (back-to-indentation)
 
         (or
          ;; Handle indentation in a constructor with an initializer on a
@@ -274,24 +274,32 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                  t))))
 
          ;; Handle map literal indentation
-         (when (and (memq type '(label statement-block-intro statement-cont statement block-close))
+         (when (and (memq type '(label statement-block-intro statement-cont statement
+                                 block-close defun-block-intro defun-close))
                     (not (dart-in-block-p ad-return-value)))
            (save-excursion
              (c-safe
-               (c-backward-comments)
-               ;; Completely reset ad-return-value here because otherwise it
-               ;; gets super-screwy.
-               (if (= (char-before) ?\{)
+               (if (= (char-after) ?\})
                    (progn
+                     (backward-up-list)
+                     (when (= (char-after) ?\{)
+                       (back-to-indentation)
+                       (setq ad-return-value `((brace-list-close ,(point))))))
+                 (c-backward-comments)
+                 ;; Completely reset ad-return-value here because otherwise it
+                 ;; gets super-screwy.
+                 (if (= (char-before) ?\{)
+                     (progn
+                       (back-to-indentation)
+                       (setq ad-return-value `((brace-list-intro ,(point))))
+                       t)
+                   (backward-up-list)
+                   (when (= (char-after) ?\{)
+                     (forward-char)
+                     (c-forward-comments)
                      (back-to-indentation)
-                     (setq ad-return-value `((brace-list-intro ,(point))))
-                     t)
-                 (backward-up-list)
-                 (when (= (char-after) ?\{)
-                   (c-forward-comments)
-                   (back-to-indentation)
-                   (setq ad-return-value `((brace-list-entry ,(point))))
-                   t))))))))))
+                     (setq ad-return-value `((brace-list-entry ,(point))))
+                     t)))))))))))
 
 (defadvice c-inside-bracelist-p (after dart-inside-bracelist-p activate)
   ;; This function is only called within c-guess-basic-syntax. Since we do all
