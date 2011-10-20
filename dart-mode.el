@@ -244,6 +244,17 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
         (beginning-of-line)
 
         (or
+         ;; Handle indentation in a constructor with an initializer on a
+         ;; separate line.
+         (when (memq type '(defun-block-intro inline-close))
+           (save-excursion
+             (c-safe
+               (goto-char (cadr syntax))
+               (when (= (char-after) ?:)
+                 (c-beginning-of-statement-1)
+                 (setq ad-return-value `((,type ,(point))))
+                 t))))
+
          ;; Handle array literal indentation
          (when (memq type
                      '(arglist-intro
@@ -281,6 +292,14 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                    (back-to-indentation)
                    (setq ad-return-value `((brace-list-entry ,(point))))
                    t))))))))))
+
+(defadvice c-inside-bracelist-p (after dart-inside-bracelist-p activate)
+  ;; This function is only called within c-guess-basic-syntax. Since we do all
+  ;; out brace-list detection in our advice, we just never report being in a
+  ;; bracelist there.
+  (when (c-major-mode-is 'dart-mode)
+    (setq ad-return-value nil))
+  )
 
 
 ;;; Boilerplate font-lock piping
