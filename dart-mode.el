@@ -36,7 +36,6 @@
 ;; * String interpolation isn't fontified as Dart.
 ;; * Methods and constructors without return types aren't fontified correctly.
 ;; * Untyped parameters aren't fontified correctly.
-;; * Member initializers tend to screw with indentation.
 
 ;;; Code:
 
@@ -151,6 +150,9 @@
 
 (c-lang-defconst c-before-label-kwds
   dart '("break" "continue"))
+
+(c-lang-defconst c-nonlabel-token-key
+  dart (concat (concat "\\s\(\\|" (c-lang-const c-nonlabel-token-key))))
 
 (c-lang-defconst c-inexpr-class-kwds
   dart nil)
@@ -306,8 +308,23 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
   ;; out brace-list detection in our advice, we just never report being in a
   ;; bracelist there.
   (when (c-major-mode-is 'dart-mode)
-    (setq ad-return-value nil))
-  )
+    (setq ad-return-value nil)))
+
+(defadvice c-search-decl-header-end (around dart-search-decl-header-end activate)
+  (if (not (c-major-mode-is 'dart-mode))
+      (ad-do-it)
+    (let ((base (point)))
+      (while (and
+              (c-syntactic-re-search-forward "[;{=:]" nil 'move t t)
+              (c-end-of-current-token base))
+        (setq base (point)))
+      ;; If we hit :, we're in a member initialization list and we want to
+      ;; ignore = signs.
+      (when (= (char-before) ?:)
+        (while (and
+                (c-syntactic-re-search-forward "[;{]" nil 'move t t)
+                (c-end-of-current-token base))
+        (setq base (point)))))))
 
 
 ;;; Boilerplate font-lock piping
