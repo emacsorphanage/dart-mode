@@ -33,8 +33,9 @@
 ;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
 ;; * Return values for operator methods aren't fontified correctly.
-;; * String interpolation isn't fontified as Dart.
 ;; * Untyped parameters aren't fontified correctly.
+;; * Quotes immediately after string interpolation are marked as unclosed.
+;; * Sexp movement doesn't properly ignore quotes in interpolation.
 
 ;;; Code:
 
@@ -326,6 +327,52 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
         (setq base (point)))))))
 
 
+;;; Additional fontification support
+
+(defun dart-fontify-region (beg end)
+  "Use fontify the region between BEG and END as Dart.
+
+This will overwrite fontification due to strings and comments."
+  (save-excursion
+    (save-match-data
+      (save-restriction
+        (let ((font-lock-dont-widen t))
+          (narrow-to-region (- beg 1) end)
+          ;; font-lock-fontify-region apparently isn't inclusive,
+          ;; so we have to move the beginning back one char
+          (font-lock-fontify-region (point-min) (point-max)))))))
+
+(defun dart-limited-forward-sexp (limit &optional arg)
+  "Move forward using `forward-sexp' or to limit,
+whichever comes first."
+  (let (forward-sexp-function)
+    (condition-case err
+        (save-restriction
+          (narrow-to-region (point) limit)
+          (forward-sexp arg))
+      (scan-error
+       (unless (equal (nth 1 err) "Unbalanced parentheses")
+         (signal 'scan-error (cdr err)))
+       (goto-char limit)))))
+
+(defun dart-highlight-interpolation (limit)
+  "Highlight interpolation (${foo})."
+  (let ((start (point)))
+    (when (re-search-forward "\\(\\${\\)" limit t)
+      (if (elt (parse-partial-sexp start (point)) 3) ; in a string
+          (save-match-data
+            (forward-char -1)
+            (let ((beg (point)))
+              (dart-limited-forward-sexp limit)
+              (dart-fontify-region (+ 1 beg) (point)))
+
+            ;; Highlight the end of the interpolation.
+            (when (eq (char-before) ?})
+              (put-text-property (- (point) 1) (point) 'face font-lock-variable-name-face))
+            t)
+        (looking-at "\\<\\>")))))
+
+
 ;;; Boilerplate font-lock piping
 
 (defcustom dart-font-lock-extra-types nil
@@ -338,7 +385,10 @@ Each list item should be a regexp matching a single identifier.")
 (defconst dart-font-lock-keywords-2 (c-lang-const c-matchers-2 dart)
   "Fast normal highlighting for Dart mode.")
 
-(defconst dart-font-lock-keywords-3 (c-lang-const c-matchers-3 dart)
+(defconst dart-font-lock-keywords-3
+  (cons
+   '(dart-highlight-interpolation 1 font-lock-variable-name-face prepend)
+   (c-lang-const c-matchers-3 dart))
   "Accurate normal highlighting for Dart mode.")
 
 (defvar dart-font-lock-keywords dart-font-lock-keywords-3
