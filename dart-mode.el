@@ -200,7 +200,9 @@
     (indent-tabs-mode . nil)
     (fill-column . 80)
     (c-offsets-alist . ((arglist-intro . +)
-                        (arglist-cont-nonempty . ++))))
+                        (arglist-cont-nonempty . ++)
+                        (statement-block-intro . dart-block-offset)
+                        (block-close . dart-block-offset))))
   "The default Dart styles.")
 
 (c-add-style "dart" dart-c-style)
@@ -210,6 +212,20 @@
 
 
 ;;; CC indentation support
+
+(defun dart-block-offset (info)
+  "Calculate the correct indentation for inline functions.
+
+When indenting inline functions, we want to pretend that
+functions taking them as parameters essentially don't exist."
+  (destructuring-bind (syntax . anchor) info
+    (let ((arglist-count
+           (loop for (symbol . _) in c-syntactic-context
+                 count (eq symbol 'arglist-cont-nonempty))))
+      (if (> arglist-count 0)
+          (- (* -1 c-basic-offset arglist-count)
+             (if (eq syntax 'block-close) c-basic-offset 0))
+        (if (eq syntax 'block-close) 0 '+)))))
 
 (defun dart-in-block-p (syntax-guess)
   "Return whether or not the immediately enclosing {} block is a code block.
