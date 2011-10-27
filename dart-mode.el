@@ -202,7 +202,7 @@
     (c-basic-offset . 2)
     (indent-tabs-mode . nil)
     (fill-column . 80)
-    (c-offsets-alist . ((arglist-intro . +)
+    (c-offsets-alist . ((arglist-intro . ++)
                         (arglist-cont-nonempty . ++)
                         (statement-block-intro . dart-block-offset)
                         (block-close . dart-block-offset)
