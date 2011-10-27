@@ -239,8 +239,10 @@ This could be either an actual brace-list or an optional parameter."
     ;; If we're in a function definition with optional arguments, indent as if
     ;; the brace wasn't there. Currently this misses the in-function function
     ;; definition, but that's probably acceptable.
-    (if (assq 'topmost-intro
-              (save-excursion (goto-char anchor) (c-guess-basic-syntax)))
+    (if (and
+         (save-excursion (backward-up-list) (eq (char-after) ?\[))
+         (assq 'topmost-intro
+               (save-excursion (goto-char anchor) (c-guess-basic-syntax))))
         '++
       ;; Otherwise, we're in an actual brace list, in which case only indent
       ;; once.
@@ -334,10 +336,14 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                    (backward-up-list)
                    (when (= (char-after) ?\{)
                      (forward-char)
-                     (c-forward-comments)
-                     (back-to-indentation)
-                     (setq ad-return-value `((brace-list-entry ,(point))))
-                     t)))))))))))
+                     (let ((contp (not (looking-at "\\s-*$"))))
+                       (c-forward-comments)
+                       (back-to-indentation)
+                       (setq ad-return-value
+                             `((,(if contp 'dart-brace-list-cont-nonempty
+                                   'brace-list-entry)
+                                ,(point))))
+                       t))))))))))))
 
 (defadvice c-inside-bracelist-p (after dart-inside-bracelist-p activate)
   ;; This function is only called within c-guess-basic-syntax. Since we do all
