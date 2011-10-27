@@ -194,6 +194,9 @@
 (c-lang-defconst c-opt-postfix-decl-spec-kwds
   dart '("native"))
 
+(push '(dart-brace-list-cont-nonempty . 0)
+      (get 'c-offsets-alist 'c-stylevar-fallback))
+
 (defconst dart-c-style
   '("java"
     (c-basic-offset . 2)
@@ -202,7 +205,9 @@
     (c-offsets-alist . ((arglist-intro . +)
                         (arglist-cont-nonempty . ++)
                         (statement-block-intro . dart-block-offset)
-                        (block-close . dart-block-offset))))
+                        (block-close . dart-block-offset)
+                        (dart-brace-list-cont-nonempty .
+                         dart-brace-list-cont-nonempty-offset))))
   "The default Dart styles.")
 
 (c-add-style "dart" dart-c-style)
@@ -226,6 +231,20 @@ functions taking them as parameters essentially don't exist."
           (- (* -1 c-basic-offset arglist-count)
              (if (eq syntax 'block-close) c-basic-offset 0))
         (if (eq syntax 'block-close) 0 '+)))))
+
+(defun dart-brace-list-cont-nonempty-offset (info)
+  "Indent a brace-list line in the same style as arglist-cont-nonempty.
+This could be either an actual brace-list or an optional parameter."
+  (destructuring-bind (syntax . anchor) info
+    ;; If we're in a function definition with optional arguments, indent as if
+    ;; the brace wasn't there. Currently this misses the in-function function
+    ;; definition, but that's probably acceptable.
+    (if (assq 'topmost-intro
+              (save-excursion (goto-char anchor) (c-guess-basic-syntax)))
+        '++
+      ;; Otherwise, we're in an actual brace list, in which case only indent
+      ;; once.
+      '+)))
 
 (defun dart-in-block-p (syntax-guess)
   "Return whether or not the immediately enclosing {} block is a code block.
@@ -286,10 +305,11 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                  (setq ad-return-value
                        `((,(case type
                              (arglist-intro 'brace-list-intro)
-                             ((arglist-cont arglist-cont-nonempty) 'brace-list-entry)
+                             (arglist-cont 'brace-list-entry)
+                             (arglist-cont-nonempty 'dart-brace-list-cont-nonempty)
                              (arglist-close 'brace-list-close))
-                          ,(cadr syntax))))
-                 t))))
+                          ,(cadr syntax)))))
+               t)))
 
          ;; Handle map literal indentation
          (when (and (memq type '(label statement-block-intro statement-cont statement
