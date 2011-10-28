@@ -2,7 +2,7 @@
 
 ;; Author: Nathan Weizenbaum
 ;; URL: http://code.google.com/p/dart-mode
-;; Version: 0.6
+;; Version: 0.7
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
