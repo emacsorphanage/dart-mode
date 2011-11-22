@@ -36,6 +36,8 @@
 ;; * Untyped parameters aren't fontified correctly.
 ;; * Quotes immediately after string interpolation are marked as unclosed.
 ;; * Sexp movement doesn't properly ignore quotes in interpolation.
+;; * Methods using "=>" can cause indentation woes.
+;; * C and C++ modes seem to be hosed.
 
 ;;; Code:
 
