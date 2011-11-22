@@ -209,7 +209,8 @@
                         (statement-block-intro . dart-block-offset)
                         (block-close . dart-block-offset)
                         (dart-brace-list-cont-nonempty .
-                         dart-brace-list-cont-nonempty-offset))))
+                         dart-brace-list-cont-nonempty-offset)
+                        (case-label . +))))
   "The default Dart styles.")
 
 (c-add-style "dart" dart-c-style)
