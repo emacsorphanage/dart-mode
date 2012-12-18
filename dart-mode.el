@@ -469,6 +469,12 @@ Each list item should be a regexp matching a single identifier.")
 
 (eval-after-load 'flymake
   '(progn
+     (when (boundp 'flymake-warn-line-regexp)
+       (add-hook 'dart-mode-hook
+                 (lambda ()
+                   (setq (make-variable-buffer-local 'flymake-warn-line-regexp)
+                         "^WARNING|")_)))
+
      (push '("\\.dart\\'" flymake-dart-init) flymake-allowed-file-name-masks)
      (push '("^[^|]+|[^|]+|[^|]+|file:\\([^|]+\\)|\\([0-9]+\\)|\\([0-9]+\\)|[0-9]+|\\(.*\\)$" 1 2 3 4)
            flymake-err-line-patterns)))
