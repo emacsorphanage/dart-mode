@@ -456,6 +456,24 @@ Each list item should be a regexp matching a single identifier.")
         (funcall (c-lang-const c-make-mode-syntax-table dart))))
 
 
+;;; Flymake Support
+
+(defun flymake-dart-init ()
+  "Return the dart_analyzer command to invoke for flymake."
+  (let* ((temp-file   (flymake-init-create-temp-buffer-copy
+                       'flymake-create-temp-inplace))
+	 (local-file  (file-relative-name
+                       temp-file
+                       (file-name-directory buffer-file-name))))
+    (list "dart_analyzer" (list "--error_format" "machine" local-file))))
+
+(eval-after-load 'flymake
+  '(progn
+     (push '("\\.dart\\'" flymake-dart-init) flymake-allowed-file-name-masks)
+     (push '("^[^|]+|[^|]+|[^|]+|file:\\([^|]+\\)|\\([0-9]+\\)|\\([0-9]+\\)|[0-9]+|\\(.*\\)$" 1 2 3 4)
+           flymake-err-line-patterns)))
+
+
 ;;; Initialization
 
 ;;;###autoload (add-to-list 'auto-mode-alist '("\\.dart\\'" . dart-mode))
