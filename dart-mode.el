@@ -460,12 +460,28 @@ Each list item should be a regexp matching a single identifier.")
 
 (defun flymake-dart-init ()
   "Return the dart_analyzer command to invoke for flymake."
-  (let* ((temp-file   (flymake-init-create-temp-buffer-copy
-                       'flymake-create-temp-inplace))
-	 (local-file  (file-relative-name
-                       temp-file
-                       (file-name-directory buffer-file-name))))
-    (list "dart_analyzer" (list "--error_format" "machine" local-file))))
+  (let* ((temp-file  (flymake-init-create-temp-buffer-copy
+                      'flymake-create-temp-inplace))
+	 (local-file (file-relative-name
+                      temp-file
+                      (file-name-directory buffer-file-name)))
+         ;; Work around Dart issue 7497
+         (work-dir (expand-file-name
+                    "flymake-dart-work"
+                    (flymake-get-temp-dir))))
+    (list "dart_analyzer" (list "--error_format" "machine" local-file
+                                "--work" work-dir))))
+
+(defun flymake-dart-cleanup ()
+  "Clean up after running the Dart analyzer."
+  (flymake-simple-cleanup)
+  (let ((dir-name (expand-file-name
+                   "flymake-dart-work"
+                   (flymake-get-temp-dir))))
+    (condition-case nil
+        (delete-dir dir-name t)
+      (error
+       (flymake-log 1 "Failed to delete dir %s, error ignored" dir-name)))))
 
 (eval-after-load 'flymake
   '(progn
@@ -473,10 +489,23 @@ Each list item should be a regexp matching a single identifier.")
        (add-hook 'dart-mode-hook
                  (lambda ()
                    (setq (make-variable-buffer-local 'flymake-warn-line-regexp)
-                         "^WARNING|")_)))
+                         "^WARNING|"))))
 
-     (push '("\\.dart\\'" flymake-dart-init) flymake-allowed-file-name-masks)
-     (push '("^[^|]+|[^|]+|[^|]+|file:\\([^|]+\\)|\\([0-9]+\\)|\\([0-9]+\\)|[0-9]+|\\(.*\\)$" 1 2 3 4)
+     (defadvice flymake-post-syntax-check (before flymake-post-syntax-check-dart activate)
+       "Sets the exit code of the dart_analyzer process to 0.
+
+dart_analyzer can report errors for files other than the current
+file. flymake dies horribly if the process emits a non-zero exit
+code without any warnings for the current file. These two
+properties interact poorly."
+       (when (eq major-mode 'dart-mode)
+         (ad-set-arg 0 0)))
+
+     (push '("\\.dart\\'" flymake-dart-init flymake-dart-cleanup)
+           flymake-allowed-file-name-masks)
+     ;; Accept negative numbers to work around Dart issue 7495
+     (push '("^[^|]+|[^|]+|[^|]+|file:\\([^|]+\\)|\\([0-9]+\\)|\\([0-9]+\\)|[0-9]+|\\(.*\\)$"
+             1 2 3 4)
            flymake-err-line-patterns)))
 
 
