@@ -356,8 +356,7 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
     (setq ad-return-value nil)))
 
 (defadvice c-search-decl-header-end (around dart-search-decl-header-end activate)
-  (if (not (c-major-mode-is 'dart-mode))
-      (ad-do-it)
+  (if (not (c-major-mode-is 'dart-mode)) ad-do-it
     (let ((base (point)))
       (while (and
               (c-syntactic-re-search-forward "[;{=:]" nil 'move t t)
@@ -372,7 +371,7 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
         (setq base (point)))))))
 
 (defadvice c-parse-state (around dart-c-parse-state activate)
-  (if (not (c-major-mode-is 'dart-mode)) (ad-do-it)
+  (if (not (c-major-mode-is 'dart-mode)) ad-do-it
     ;; c-parse-state is a wrapper around c-parse-state-1 that does some tricks
     ;; to ensure that dangling brackets in preprocessor commands don't screw up
     ;; parse information for the real world. In Dart, all "preprocessor"
