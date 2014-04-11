@@ -487,8 +487,8 @@ Each list item should be a regexp matching a single identifier.")
      (when (boundp 'flymake-warn-line-regexp)
        (add-hook 'dart-mode-hook
                  (lambda ()
-                   (setq (make-variable-buffer-local 'flymake-warn-line-regexp)
-                         "^WARNING|"))))
+                   (set (make-variable-buffer-local 'flymake-warn-line-regexp)
+                        "^WARNING|"))))
 
      (defadvice flymake-post-syntax-check (before flymake-post-syntax-check-dart activate)
        "Sets the exit code of the dart_analyzer process to 0.
