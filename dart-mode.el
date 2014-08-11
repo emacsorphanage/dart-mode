@@ -370,15 +370,16 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                 (c-end-of-current-token base))
         (setq base (point)))))))
 
-(defadvice c-parse-state (around dart-c-parse-state activate)
-  (if (not (c-major-mode-is 'dart-mode)) ad-do-it
-    ;; c-parse-state is a wrapper around c-parse-state-1 that does some tricks
-    ;; to ensure that dangling brackets in preprocessor commands don't screw up
-    ;; parse information for the real world. In Dart, all "preprocessor"
-    ;; directives have matched braces, so we don't need to worry about that. The
-    ;; wrapper was also screwing up indentation in weird ways, so we just ignore
-    ;; it.
-    (setq ad-return-value (c-parse-state-1))))
+(if (fboundp 'c-parse-state-1)
+  (defadvice c-parse-state (around dart-c-parse-state activate)
+    (if (not (c-major-mode-is 'dart-mode)) ad-do-it
+      ;; c-parse-state is a wrapper around c-parse-state-1 that does some tricks
+      ;; to ensure that dangling brackets in preprocessor commands don't screw up
+      ;; parse information for the real world. In Dart, all "preprocessor"
+      ;; directives have matched braces, so we don't need to worry about that. The
+      ;; wrapper was also screwing up indentation in weird ways, so we just ignore
+      ;; it.
+      (setq ad-return-value (c-parse-state-1)))))
 
 
 ;;; Additional fontification support
