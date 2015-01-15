@@ -1,8 +1,8 @@
 ;;; dart-mode.el --- Major mode for editing Dart files
 
-;; Author: Nathan Weizenbaum
+;; Author: Natalie Weizenbaum
 ;; URL: http://code.google.com/p/dart-mode
-;; Version: 0.10
+;; Version: 0.11
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
@@ -217,6 +217,8 @@
 
 (defvar dart-mode-map (c-make-inherited-keymap)
   "Keymap used in dart-mode buffers.")
+
+(define-key dart-mode-map (kbd "C-M-q") 'dart-format-statement)
 
 
 ;;; CC indentation support
@@ -507,6 +509,93 @@ properties interact poorly."
      (push '("^[^|]+|[^|]+|[^|]+|file:\\([^|]+\\)|\\([0-9]+\\)|\\([0-9]+\\)|[0-9]+|\\(.*\\)$"
              1 2 3 4)
            flymake-err-line-patterns)))
+
+
+;;; Formatter integration
+
+(defcustom dart-format-path "dartformat"
+  "The path to the dartformat executable.
+
+Defaults to looking it up on `exec-path'.")
+
+(defun dart-format-region (beg end)
+  "Run the Dart formatter on the current region.
+
+This uses `dart-format-path' to find the formatter."
+  (interactive "r")
+  (save-excursion
+    (goto-char beg)
+    (if (eolp) (forward-char))
+    (back-to-indentation)
+    (let ((indent (/ (current-column) 2)))
+      ;; Make sure that the region starts at the beginning of a line so that the
+      ;; formatter can re-indent it correctly.
+      (beginning-of-line)
+      (setq beg (point))
+
+      ;; Same with the end.
+      (goto-char end)
+      (unless (bolp)
+        (end-of-line)
+        (forward-char))
+      (setq end (point))
+
+      (call-process-region
+       beg end dart-format-path t t nil
+       "--statement" "--indent" (number-to-string indent)))))
+
+(defun dart-format-statement (pos)
+  "Run the Dart formatter on the current statement.
+
+This uses `dart-format-path' to find the formatter."
+  (interactive "d")
+  (save-excursion
+    (dart-beginning-of-statement)
+    (let ((beg (point)))
+      (loop do (condition-case nil
+                   (forward-sexp)
+                 (error (backward-up-list -1)))
+            until (if (looking-at "[[:space:]\\n]*\\(;\\)")
+                      (goto-char (match-end 1))
+                    (and (eq (char-before) ?})
+                         (eolp))))
+      (dart-format-region beg (point)))))
+
+
+;;; Utility functions
+
+(defun dart-beginning-of-statement ()
+  "Moves to the beginning of a Dart statement.
+
+Unlike `c-beginning-of-statement', this handles maps correctly
+and will move to the top level of a bracketed statement."
+  (while
+      (progn
+        (back-to-indentation)
+        (while (eq (char-after) ?})
+          (forward-char)
+          (forward-sexp -1)
+          (back-to-indentation))
+        (when (not (-dart-beginning-of-statement-p)) (forward-line -1)))))
+
+(defun -dart-beginning-of-statement-p ()
+  "Returns whether the point is at the beginning of a statement.
+
+Statements are assumed to begin on their own lines. This returns
+true for positions before the start of the statement, but on its line."
+  (and
+   (save-excursion
+     (skip-syntax-forward " ")
+     (not (or (bolp) (eq (char-after) ?}))))
+   (save-excursion
+     (skip-syntax-backward " ")
+     (when (bolp)
+       (loop do (forward-char -1)
+             while (looking-at "^ *$"))
+       (skip-syntax-backward " ")
+       (case (char-before)
+         ((?} ?\;) t)
+         ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
 
 ;;; Initialization
