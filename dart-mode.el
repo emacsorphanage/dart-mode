@@ -2,7 +2,8 @@
 
 ;; Author: Natalie Weizenbaum
 ;; URL: http://code.google.com/p/dart-mode
-;; Version: 0.11
+;; Version: 0.12
+;; Package-Requires: ((cl-lib "0.5") (dash "2.10.0") (flycheck "0.24"))
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
@@ -42,11 +43,31 @@
 ;;; Code:
 
 (require 'cc-mode)
-(require 'cc-langs)
-(eval-when-compile (require 'cl))
+(eval-when-compile
+  (require 'cc-langs)
+  (require 'cc-fonts))
 
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
 
+(require 'dash)
+(require 'flycheck)
+(require 'json)
+
+;; See https://debbugs.gnu.org/cgi/bugreport.cgi?bug=18845. cc-mode before 24.4
+;; uses 'cl without requiring it but we use 'cl-lib in this package. We can
+;; simply require 'cl past 24.4 but need to work around the dependency for
+;; earlier versions.
+(eval-when-compile
+  (unless (require 'cl-lib nil t)
+    (require 'cl)))
+
+(eval-and-compile
+  (if (and (= emacs-major-version 24) (>= emacs-minor-version 4))
+    (require 'cl)))
+
+(if (and (= emacs-major-version 24) (< emacs-minor-version 3))
+    (unless (fboundp 'cl-set-difference)
+      (defalias 'cl-set-difference 'set-difference)))
 
 ;;; CC configuration
 
@@ -172,8 +193,8 @@
   dart nil)
 
 (c-lang-defconst c-block-prefix-disallowed-chars
-  dart (set-difference (c-lang-const c-block-prefix-disallowed-chars)
-                       '(?\" ?')))
+  dart (cl-set-difference (c-lang-const c-block-prefix-disallowed-chars)
+                          '(?\" ?')))
 
 (c-lang-defconst c-type-decl-prefix-key
   dart "\\(\(\\)\\([^=]\\|$\\)")
@@ -562,6 +583,325 @@ This uses `dart-format-path' to find the formatter."
       (dart-format-region beg (point)))))
 
 
+;;; Dart analysis server
+
+(cl-defstruct
+    (dart--analysis-server
+     (:constructor dart--make-analysis-server))
+  "Struct containing data for an instance of a Dart analysis server.
+
+The slots are:
+- `process': the process of the running server.
+- `buffer': the buffer where responses from the server are written."
+  process buffer)
+
+(defgroup dart-mode nil
+  "Major mode for editing Dart code."
+  :group 'languages)
+
+(defvar dart-debug nil
+  "If non-nil, enables writing debug messages for dart-mode.")
+
+(defcustom dart-enable-analysis-server nil
+  "If non-nil, enables support for Dart analysis server.
+
+The Dart analysis server adds support for error checking, code completion,
+navigation, and more."
+  :group 'dart-mode
+  :type 'boolean
+  :package-version '(dart-mode . "0.12"))
+
+(defvar dart--analysis-server nil
+  "The instance of the Dart analysis server we are communicating with.")
+
+(defcustom dart-executable-path (executable-find "dart")
+  "The absolute path to the 'dart' executable."
+  :group 'dart-mode
+  :type 'file
+  :package-version '(dart-mode . "0.12"))
+
+(defcustom dart-analysis-server-snapshot-path
+  (concat (file-name-directory dart-executable-path)
+          (file-name-as-directory "snapshots")
+          "analysis_server.dart.snapshot")
+  "The absolute path to the snapshot file that runs the Dart analysis server."
+  :group 'dart-mode
+  :type 'file
+  :package-version '(dart-mode . "0.12"))
+
+(defvar dart-analysis-roots nil
+  "The list of analysis roots that are known to the analysis server.
+
+All Dart files underneath the analysis roots are analyzed by the analysis
+server.")
+
+(defvar dart--analysis-server-next-id 0
+  "The ID to use for the next request to the Dart analysis server.")
+
+(defvar dart--analysis-server-callbacks nil
+  "An alist of ID to callback to be called when the analysis server responds.
+
+Each request to the analysis server has an associated ID.  When the analysis
+server sends a response to a request, it tags the response with the ID of the
+request.  We look up the callback for the request in this alist and run it with
+the JSON decoded server response.")
+
+(defun dart-info (msg)
+  "Logs MSG to the dart log if `dart-debug' is non-nil."
+  (when dart-debug (dart-log msg)))
+
+(defun dart-log (msg)
+  "Logs MSG to the dart log."
+  (let* ((log-buffer (get-buffer-create "*dart-debug*"))
+         (iso-format-string "%Y-%m-%dT%T%z")
+         (timestamp-and-log-string
+          (format-time-string iso-format-string (current-time))))
+    (with-current-buffer log-buffer
+      (goto-char (point-max))
+      (insert "\n\n\n")
+      (insert (concat timestamp-and-log-string
+                      "\n"
+                      msg))
+      (insert "\n"))))
+
+(defun dart--start-analysis-server-for-current-buffer ()
+  "Initialize Dart analysis server for current buffer.
+
+This starts Dart analysis server and adds either the pub root
+directory or the current file directory to the analysis roots."
+  (if (not dart--analysis-server) (dart-start-analysis-server))
+  ;; TODO(hterkelsen): Add this file to the priority files.
+  (dart-add-analysis-root-for-file)
+  (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
+  (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
+  (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
+  (add-to-list 'flycheck-checkers 'dart-analysis-server))
+
+(defun dart-start-analysis-server ()
+  "Start the Dart analysis server."
+  (when dart--analysis-server
+    (process-kill-without-query
+     (dart--analysis-server-process dart--analysis-server))
+    (kill-buffer (dart--analysis-server-buffer dart--analysis-server)))
+  (let ((dart-process
+         (start-process "dart-analysis-server"
+                        "*dart-analysis-server*"
+                        dart-executable-path
+                        dart-analysis-server-snapshot-path
+                        "--no-error-notification")))
+    (setq dart--analysis-server
+          (dart--analysis-server-create dart-process))))
+
+(defun dart--analysis-server-create (process)
+  "Create a Dart analysis server from PROCESS."
+  (lexical-let* ((buffer (generate-new-buffer (process-name process)))
+                 (instance (dart--make-analysis-server
+                            :process process
+                            :buffer buffer)))
+    (buffer-disable-undo (dart--analysis-server-buffer instance))
+    (set-process-filter
+     process
+     (lambda (proc string)
+       (dart--analysis-server-process-filter instance string)))
+    instance))
+
+(defun dart-add-analysis-overlay ()
+  "Report to the Dart analysis server that it should overlay this buffer.
+
+The Dart analysis server allows clients to 'overlay' file contents with
+a client-supplied string.  This is needed because we want Emacs to report
+errors for the current contents of the buffer, not whatever is saved to disk."
+  (dart--analysis-server-send
+   "analysis.updateContent"
+   `((files .
+            ((,buffer-file-name . ((type . "add")
+                                   (content . ,(buffer-string)))))))))
+
+(defun dart-change-analysis-overlay
+    (change-begin change-end change-before-length)
+  "Report to analysis server that it should change the overlay for this buffer.
+
+The region that changed ranges from CHANGE-BEGIN to CHANGE-END, and the
+length of the text before the change is CHANGE-BEFORE-LENGTH. See also
+`dart-add-analysis-overlay'."
+  (dart--analysis-server-send
+   "analysis.updateContent"
+   `((files
+      . ((,buffer-file-name
+          . ((type . "change")
+             (edits
+              . (((offset . ,change-begin)
+                  (length . ,change-before-length)
+                  (replacement
+                   . ,(buffer-substring change-begin change-end))))))))))))
+
+(defun dart-remove-analysis-overlay ()
+  "Remove the overlay for the current buffer since it has been saved.
+
+See also `dart-add-analysis-overlay'."
+  (dart--analysis-server-send
+   "analysis.updateContent"
+   `((files . ((,buffer-file-name . ((type . "remove"))))))))
+
+(defun dart-add-analysis-root-for-file (&optional file)
+  "Add the given FILE's root to the analysis server's analysis roots.
+
+A file's root is the pub root if it is in a pub package, or the file's directory
+otherwise.  If no FILE is given, then this will default to the variable
+`buffer-file-name'."
+  (let* ((file-to-add (if file file buffer-file-name))
+         (pub-root (locate-dominating-file file-to-add "pubspec.yaml"))
+         (current-dir (file-name-directory file-to-add)))
+    (if pub-root (dart-add-to-analysis-roots (expand-file-name pub-root))
+      (dart-add-to-analysis-roots (expand-file-name current-dir)))))
+
+(defun dart-add-to-analysis-roots (dir)
+  "Add DIR to the analysis server's analysis roots.
+
+The analysis roots are directories that contain Dart files. The analysis server
+analyzes all Dart files under the analysis roots and provides information about
+them when requested."
+  (add-to-list 'dart-analysis-roots dir)
+  (dart--send-analysis-roots))
+
+(defun dart--send-analysis-roots ()
+  "Send the current list of analysis roots to the analysis server."
+  (dart--analysis-server-send
+   "analysis.setAnalysisRoots"
+   `(("included" . ,dart-analysis-roots)
+     ("excluded" . nil))))
+
+(defun dart--analysis-server-send (method &optional params callback)
+  "Send the METHOD request to the server with optional PARAMS.
+
+PARAMS should be JSON-encodable.  If you provide a CALLBACK, it will be called
+with the JSON decoded response.  Otherwise, the output will just be checked."
+  (let ((req-without-id (dart--analysis-server-make-request method params)))
+    (dart--analysis-server-enqueue req-without-id callback)))
+
+(defun dart--analysis-server-make-request (method &optional params)
+  "Construct a request for the analysis server.
+
+The constructed request will call METHOD with optional PARAMS."
+  `((method . ,method) (params . ,params)))
+
+(defun dart--analysis-server-on-error-callback (response)
+  "If RESPONSE has an error, report it."
+  (-when-let (resp-err (assoc 'error response))
+    (dart-log (format "Response from server had error: %s" resp-err))))
+
+(defun dart--analysis-server-enqueue (req-without-id callback)
+  "Send REQ-WITHOUT-ID to the analysis server, call CALLBACK with the result."
+  (setq dart--analysis-server-next-id (1+ dart--analysis-server-next-id))
+  (let ((request
+         (json-encode (push (cons 'id (format "%s" dart--analysis-server-next-id))
+                            req-without-id))))
+    (dart-info (concat "Sent:\n" request))
+    (if callback
+        (push (cons dart--analysis-server-next-id callback)
+              dart--analysis-server-callbacks)
+      (push
+       (cons dart--analysis-server-next-id
+             #'dart--analysis-server-on-error-callback)
+       dart--analysis-server-callbacks))
+    (process-send-string (dart--analysis-server-process dart--analysis-server)
+                         (concat request "\n"))))
+
+(defun dart--analysis-server-handle-response (callback response)
+  "Call CALLBACK with the parsed JSON RESPONSE from the analysis server."
+  (dart-info (concat "Received:\n" (format "%s" response)))
+  (funcall callback response))
+
+(defun dart--analysis-server-process-filter (das string)
+  "Handle the event or method response from the dart analysis server.
+
+The server DAS has STRING added to the buffer associated with it.
+Method responses are paired according to their pending request and
+the callback for that request is given the json decoded response."
+  (let ((buf (dart--analysis-server-buffer das)))
+    ;; The buffer may have been killed if the server was restarted
+    (when (buffer-live-p buf)
+      ;; We use a buffer here because emacs might call the filter before the
+      ;; entire line has been written out. In this case we store the
+      ;; unterminated line in a buffer to be read when the rest of the line is
+      ;; output.
+      (with-current-buffer buf
+        (goto-char (point-max))
+        (insert string)
+        (let ((buf-lines (split-string (buffer-string) "\n")))
+          (delete-region (point-min) (point-max))
+          (insert (-last-item buf-lines))
+          (let ((json-lines (-map 'json-read-from-string
+                                  (-filter (lambda (s)
+                                             (not (or (null s) (string= "" s))))
+                                           (-butlast buf-lines)))))
+            (-each json-lines 'dart--analysis-server-handle-msg)))))))
+
+(defun dart--analysis-server-handle-msg (msg)
+  "Handle the parsed MSG from the analysis server."
+  (-when-let* ((id-assoc (assoc 'id msg))
+               (raw-id (cdr id-assoc))
+               (id (string-to-number raw-id)))
+    (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
+        (progn
+          (dart--analysis-server-handle-response (cdr resp-closure) msg)
+          (setq dart--analysis-server-callbacks
+                (assq-delete-all id dart--analysis-server-callbacks)))
+      (dart-info (format "No callback was associated with id %s" raw-id)))))
+
+(defun dart--flycheck-start (checker callback)
+  "Run the CHECKER and report the errors to the CALLBACK."
+  (dart-info (format "Checking syntax for %s" (current-buffer)))
+  (dart--analysis-server-send
+   "analysis.getErrors"
+   `((file . ,(buffer-file-name)))
+   `(lambda (response)
+      (dart--report-errors response ,(current-buffer) ,callback))))
+
+(flycheck-define-generic-checker 'dart-analysis-server
+  "Checks Dart source code for errors using Dart analysis server."
+  :start 'dart--flycheck-start
+  :modes '(dart-mode))
+
+(defun dart--report-errors (response buffer callback)
+  "Report the errors returned from the analysis server.
+
+The errors contained in RESPONSE from Dart analysis server run on BUFFER are
+reported to CALLBACK."
+  (dart-info (format "Reporting to flycheck: %s" response))
+  (-when-let* ((resp-result (cdr (assoc 'result response)))
+               (resp-errors (cdr (assoc 'errors resp-result))))
+    (let ((fly-errors
+           (-map (lambda (err) (dart--to-flycheck-err err buffer)) resp-errors)))
+      (dart-info (format "Parsed errors: %s" fly-errors))
+      (funcall callback 'finished fly-errors))))
+
+(defun dart--to-flycheck-err (err buffer)
+  "Create a flycheck error from a dart ERR in BUFFER."
+  (-let* ((severity (cdr (assoc 'severity err)))
+          (location (cdr (assoc 'location err)))
+          (msg (cdr (assoc 'message err)))
+          (level (dart--severity-to-level severity))
+          (filename (cdr (assoc 'file location)))
+          (line (cdr (assoc 'startLine location)))
+          (column (cdr (assoc 'startColumn location))))
+    (flycheck-error-new
+     :buffer buffer
+     :checker 'dart-analysis-server
+     :filename filename
+     :line line
+     :column column
+     :message msg
+     :level level)))
+
+(defun dart--severity-to-level (severity)
+  "Convert SEVERITY to a flycheck level."
+  (cond
+   ((string= severity "INFO") 'info)
+   ((string= severity "WARNING") 'warning)
+   ((string= severity "ERROR") 'error)))
+
+
 ;;; Utility functions
 
 (defun dart-beginning-of-statement ()
@@ -621,6 +961,8 @@ Key bindings:
   (c-init-language-vars dart-mode)
   (c-common-init 'dart-mode)
   (c-set-style "dart")
+  (when dart-enable-analysis-server
+      (dart--start-analysis-server-for-current-buffer))
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
   (c-update-modeline))
