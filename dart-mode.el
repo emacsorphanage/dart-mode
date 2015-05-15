@@ -621,9 +621,10 @@ navigation, and more."
   :package-version '(dart-mode . "0.12"))
 
 (defcustom dart-analysis-server-snapshot-path
-  (concat (file-name-directory dart-executable-path)
-          (file-name-as-directory "snapshots")
-          "analysis_server.dart.snapshot")
+  (when dart-executable-path
+    (concat (file-name-directory dart-executable-path)
+            (file-name-as-directory "snapshots")
+            "analysis_server.dart.snapshot"))
   "The absolute path to the snapshot file that runs the Dart analysis server."
   :group 'dart-mode
   :type 'file
@@ -962,7 +963,11 @@ Key bindings:
   (c-common-init 'dart-mode)
   (c-set-style "dart")
   (when dart-enable-analysis-server
-      (dart--start-analysis-server-for-current-buffer))
+    (if (or (null dart-executable-path)
+            (null dart-analysis-server-snapshot-path))
+        (dart-log
+         "Cannot find `dart' executable or Dart analysis server snapshot.")
+      (dart--start-analysis-server-for-current-buffer)))
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
   (c-update-modeline))
