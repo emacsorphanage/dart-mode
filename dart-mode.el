@@ -1,7 +1,7 @@
 ;;; dart-mode.el --- Major mode for editing Dart files
 
 ;; Author: Natalie Weizenbaum
-;; URL: http://code.google.com/p/dart-mode
+;; URL: https://github.com/nex3/dart-mode
 ;; Version: 0.12
 ;; Package-Requires: ((cl-lib "0.5") (dash "2.10.0") (flycheck "0.24"))
 ;; Keywords: language
@@ -23,10 +23,7 @@
 
 ;;; Commentary:
 
-;; To install, save this on your load path and add the following to
-;; your .emacs file:
-;;
-;; (require 'dart-mode)
+;; To install, see https://github.com/nex3/dart-mode/blob/master/README.md
 ;;
 ;; Known bugs:
 ;;
