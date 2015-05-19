@@ -8,11 +8,11 @@ Dart Mode is a major mode for editing Dart files in Emacs.
       ```
       $ git clone https://github.com/nex3/dart-mode.git
       ```
+
 1.  Ensure you have `cl-lib`, `dash` and `flycheck` installed.
 
 1.  Load `dart-mode.el` on your path and require both `flycheck` and
-    `dart-mode`. An typical `.emacs` configuration file might look
-    like:
+    `dart-mode`. A typical `.emacs` configuration file might contain:
       ```
       (load "/path/to/dart-mode.el")
       (require 'flycheck)
