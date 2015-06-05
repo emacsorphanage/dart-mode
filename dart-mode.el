@@ -684,6 +684,12 @@ directory or the current file directory to the analysis roots."
      (dart--analysis-server-process dart--analysis-server))
     (kill-buffer (dart--analysis-server-buffer dart--analysis-server)))
   (let ((dart-process
+         ;; set process-connection-type to nil so that emacs starts
+         ;; the analysis server controlled by a pipe rather than a
+         ;; pseudo-terminal. If the process is controlled by a
+         ;; pseudo-terminal, emacs will buffer requests to the analysis
+         ;; server with interspersed EOFs, which confuses the analysis
+         ;; server. This does not happen with pipes.
          (let ((process-connection-type nil))
            (start-process "dart-analysis-server"
                           "*dart-analysis-server*"
