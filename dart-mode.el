@@ -684,12 +684,13 @@ directory or the current file directory to the analysis roots."
     (process-kill-without-query
      (dart--analysis-server-process dart--analysis-server))
     (kill-buffer (dart--analysis-server-buffer dart--analysis-server)))
-  (let ((dart-process
-         (start-process "dart-analysis-server"
-                        "*dart-analysis-server*"
-                        dart-executable-path
-                        dart-analysis-server-snapshot-path
-                        "--no-error-notification")))
+  (let* ((process-connection-type nil)
+         (dart-process
+          (start-process "dart-analysis-server"
+                         "*dart-analysis-server*"
+                         dart-executable-path
+                         dart-analysis-server-snapshot-path
+                         "--no-error-notification")))
     (setq dart--analysis-server
           (dart--analysis-server-create dart-process))))
 
