@@ -732,7 +732,7 @@ length of the text before the change is CHANGE-BEFORE-LENGTH. See also
       . ((,buffer-file-name
           . ((type . "change")
              (edits
-              . (((offset . ,change-begin)
+              . (((offset . ,(- change-begin 1))
                   (length . ,change-before-length)
                   (replacement
                    . ,(buffer-substring change-begin change-end))))))))))))
