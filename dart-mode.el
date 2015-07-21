@@ -789,8 +789,8 @@ The constructed request will call METHOD with optional PARAMS."
 
 (defun dart--analysis-server-on-error-callback (response)
   "If RESPONSE has an error, report it."
-  (-when-let (resp-err (assoc 'error response))
-    (dart-log (format "Response from server had error: %s" resp-err))))
+  (-when-let (resp-err (assoc-default 'error response))
+    (error "Analysis server error: %s" (assoc-default 'message resp-err))))
 
 (defun dart--analysis-server-enqueue (req-without-id callback)
   "Send REQ-WITHOUT-ID to the analysis server, call CALLBACK with the result."
@@ -798,21 +798,16 @@ The constructed request will call METHOD with optional PARAMS."
   (let ((request
          (json-encode (push (cons 'id (format "%s" dart--analysis-server-next-id))
                             req-without-id))))
-    (dart-info (concat "Sent:\n" request))
-    (if callback
-        (push (cons dart--analysis-server-next-id callback)
-              dart--analysis-server-callbacks)
-      (push
-       (cons dart--analysis-server-next-id
-             #'dart--analysis-server-on-error-callback)
-       dart--analysis-server-callbacks))
+
+    ;; Enqueue the request so that we can be sure all requests are processed in
+    ;; order.
+    (push (cons dart--analysis-server-next-id
+                (or callback #'dart--analysis-server-on-error-callback))
+          dart--analysis-server-callbacks)
+
+    (dart-info (concat "Sent: " request))
     (process-send-string (dart--analysis-server-process dart--analysis-server)
                          (concat request "\n"))))
-
-(defun dart--analysis-server-handle-response (callback response)
-  "Call CALLBACK with the parsed JSON RESPONSE from the analysis server."
-  (dart-info (concat "Received:\n" (format "%s" response)))
-  (funcall callback response))
 
 (defun dart--analysis-server-process-filter (das string)
   "Handle the event or method response from the dart analysis server.
@@ -833,10 +828,13 @@ the callback for that request is given the json decoded response."
         (let ((buf-lines (split-string (buffer-string) "\n")))
           (delete-region (point-min) (point-max))
           (insert (-last-item buf-lines))
-          (let ((json-lines (-map 'json-read-from-string
-                                  (-filter (lambda (s)
-                                             (not (or (null s) (string= "" s))))
-                                           (-butlast buf-lines)))))
+          (let ((json-lines
+                 (-map (lambda (s)
+                         (dart-info (concat "Received: " s))
+                         (json-read-from-string s))
+                       (-filter (lambda (s)
+                                  (not (or (null s) (string= "" s))))
+                                (-butlast buf-lines)))))
             (-each json-lines 'dart--analysis-server-handle-msg)))))))
 
 (defun dart--analysis-server-handle-msg (msg)
@@ -846,10 +844,12 @@ the callback for that request is given the json decoded response."
                (id (string-to-number raw-id)))
     (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
         (progn
-          (dart--analysis-server-handle-response (cdr resp-closure) msg)
           (setq dart--analysis-server-callbacks
-                (assq-delete-all id dart--analysis-server-callbacks)))
-      (dart-info (format "No callback was associated with id %s" raw-id)))))
+                (assq-delete-all id dart--analysis-server-callbacks))
+          (funcall (cdr resp-closure) msg))
+      (-if-let (err (assoc 'error msg))
+          (dart--analysis-server-on-error-callback msg)
+        (dart-info (format "No callback was associated with id %s" raw-id))))))
 
 (defun dart--flycheck-start (checker callback)
   "Run the CHECKER and report the errors to the CALLBACK."
