@@ -1,4 +1,4 @@
-;;; dart-mode.el --- Major mode for editing Dart files
+;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
 ;; Author: Natalie Weizenbaum
 ;; URL: http://code.google.com/p/dart-mode
@@ -695,7 +695,7 @@ directory or the current file directory to the analysis roots."
 
 (defun dart--analysis-server-create (process)
   "Create a Dart analysis server from PROCESS."
-  (lexical-let* ((buffer (generate-new-buffer (process-name process)))
+  (let* ((buffer (generate-new-buffer (process-name process)))
                  (instance (dart--make-analysis-server
                             :process process
                             :buffer buffer)))
@@ -856,8 +856,9 @@ the callback for that request is given the json decoded response."
   (dart--analysis-server-send
    "analysis.getErrors"
    `((file . ,(buffer-file-name)))
-   `(lambda (response)
-      (dart--report-errors response ,(current-buffer) ,callback))))
+   (let ((buffer (current-buffer)))
+     (lambda (response)
+       (dart--report-errors response buffer callback)))))
 
 (flycheck-define-generic-checker 'dart-analysis-server
   "Checks Dart source code for errors using Dart analysis server."
