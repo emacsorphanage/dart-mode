@@ -241,6 +241,9 @@
 
 ;;; CC indentation support
 
+(defvar c-syntactic-context nil
+  "A dynamically-bound variable used by cc-mode.")
+
 (defun dart-block-offset (info)
   "Calculate the correct indentation for inline functions.
 
@@ -258,7 +261,7 @@ functions taking them as parameters essentially don't exist."
 (defun dart-brace-list-cont-nonempty-offset (info)
   "Indent a brace-list line in the same style as arglist-cont-nonempty.
 This could be either an actual brace-list or an optional parameter."
-  (destructuring-bind (syntax . anchor) info
+  (destructuring-bind (_ . anchor) info
     ;; If we're in a function definition with optional arguments, indent as if
     ;; the brace wasn't there. Currently this misses the in-function function
     ;; definition, but that's probably acceptable.
@@ -452,7 +455,8 @@ whichever comes first."
 
 (defcustom dart-font-lock-extra-types nil
   "*List of extra types (aside from the type keywords) to recognize in DART mode.
-Each list item should be a regexp matching a single identifier.")
+Each list item should be a regexp matching a single identifier."
+  :group 'dart-mode)
 
 (defconst dart-font-lock-keywords-1 (c-lang-const c-matchers-1 dart)
   "Minimal highlighting for Dart mode.")
@@ -534,7 +538,8 @@ properties interact poorly."
 (defcustom dart-format-path "dartformat"
   "The path to the dartformat executable.
 
-Defaults to looking it up on `exec-path'.")
+Defaults to looking it up on `exec-path'."
+  :group 'dart-mode)
 
 (defun dart-format-region (beg end)
   "Run the Dart formatter on the current region.
@@ -678,22 +683,17 @@ directory or the current file directory to the analysis roots."
 (defun dart-start-analysis-server ()
   "Start the Dart analysis server."
   (when dart--analysis-server
-    (process-kill-without-query
+    (kill-process
      (dart--analysis-server-process dart--analysis-server))
     (kill-buffer (dart--analysis-server-buffer dart--analysis-server)))
-  (let ((dart-process
-         ;; set process-connection-type to nil so that emacs starts
-         ;; the analysis server controlled by a pipe rather than a
-         ;; pseudo-terminal. If the process is controlled by a
-         ;; pseudo-terminal, emacs will buffer requests to the analysis
-         ;; server with interspersed EOFs, which confuses the analysis
-         ;; server. This does not happen with pipes.
-         (let ((process-connection-type nil))
-           (start-process "dart-analysis-server"
-                          "*dart-analysis-server*"
-                          dart-executable-path
-                          dart-analysis-server-snapshot-path
-                          "--no-error-notification"))))
+  (let* ((process-connection-type nil)
+         (dart-process
+          (start-process "dart-analysis-server"
+                         "*dart-analysis-server*"
+                         dart-executable-path
+                         dart-analysis-server-snapshot-path
+                         "--no-error-notification")))
+    (set-process-query-on-exit-flag dart-process nil)
     (setq dart--analysis-server
           (dart--analysis-server-create dart-process))))
 
@@ -706,7 +706,7 @@ directory or the current file directory to the analysis roots."
     (buffer-disable-undo (dart--analysis-server-buffer instance))
     (set-process-filter
      process
-     (lambda (proc string)
+     (lambda (_ string)
        (dart--analysis-server-process-filter instance string)))
     instance))
 
@@ -854,7 +854,7 @@ the callback for that request is given the json decoded response."
           (dart--analysis-server-on-error-callback msg)
         (dart-info (format "No callback was associated with id %s" raw-id))))))
 
-(defun dart--flycheck-start (checker callback)
+(defun dart--flycheck-start (_ callback)
   "Run the CHECKER and report the errors to the CALLBACK."
   (dart-info (format "Checking syntax for %s" (current-buffer)))
   (dart--analysis-server-send
