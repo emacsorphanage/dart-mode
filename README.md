@@ -4,9 +4,8 @@ Dart Mode is a major mode for editing Dart files in Emacs.
 
 ## Installation
 
-1.  Add both [MELPA](http://melpa.org/#/getting-started) and
-    [Marmalade](https://marmalade-repo.org/#download) to your
-    `package-archives` if you don't already have them.
+1. Add [Marmalade](https://marmalade-repo.org/#download) to your
+   `package-archives` if you don't already have it.
 
 1.  Install dart-mode via:
     ```
