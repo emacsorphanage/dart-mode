@@ -59,10 +59,10 @@
     (require 'cl)))
 
 (eval-and-compile
-  (if (and (= emacs-major-version 24) (>= emacs-minor-version 4))
+  (if (version<= "24.4" emacs-version)
     (require 'cl)))
 
-(if (and (= emacs-major-version 24) (< emacs-minor-version 3))
+(if (version< emacs-version "24.3")
     (unless (fboundp 'cl-set-difference)
       (defalias 'cl-set-difference 'set-difference)))
 
