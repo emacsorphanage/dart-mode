@@ -545,6 +545,15 @@ server sends a response to a request, it tags the response with the ID of the
 request.  We look up the callback for the request in this alist and run it with
 the JSON decoded server response.")
 
+(defvar dart--analysis-completion-callbacks  nil
+  "An alist of ID to callback to be called when the analysis server sends
+  completion event.
+
+ Each request to the analysis server has an associated ID. In the
+ case of completions it also has an ID to the notification event
+ that will follow. We look up the callback for the event in this
+ alist and run it with the JSON decoded server response.")
+
 (defun dart-info (msg)
   "Logs MSG to the dart log if `dart-debug' is non-nil."
   (when dart-debug (dart-log msg)))
@@ -738,6 +747,19 @@ the callback for that request is given the json decoded response."
 
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
+  (-when-let* ((event-assoc (assoc 'event msg))
+	       (params-assoc (assoc 'params msg))
+	       (id-assoc (assoc 'id params-assoc))
+	       (raw-id (cdr id-assoc))
+	       (id (string-to-number raw-id)))
+    (-if-let (resp-closure (assoc id dart--analysis-completion-callbacks))
+    	(progn
+    	  (setq dart--analysis-completion-callbacks
+    		(assq-delete-all id dart--analysis-completion-callbacks))
+    	  (funcall (cdr resp-closure) msg))
+      (-if-let (err (assoc 'error msg))
+    	  (dart--analysis-server-on-error-callback msg)
+    	(dart-info (format "No callback was associated with id %s" raw-id)))))
   (-when-let* ((id-assoc (assoc 'id msg))
                (raw-id (cdr id-assoc))
                (id (string-to-number raw-id)))
