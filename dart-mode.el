@@ -237,6 +237,7 @@
   "Keymap used in dart-mode buffers.")
 
 (define-key dart-mode-map (kbd "C-M-q") 'dart-format-statement)
+(define-key dart-mode-map (kbd "M-.") 'dart-jump-to-defn)
 
 
 ;;; CC indentation support
@@ -838,6 +839,33 @@ true for positions before the start of the statement, but on its line."
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
+
+(defun dart--process-nav-info (response)
+  "Report the possible completions and jump to the location of the definition.
+
+  Opens a new file in a new buffer if necessary."
+
+  (dart-info (format "Reporting navigation : %s" response))
+  (-when-let* ((files (aref (cdr (assq 'files (assq 'result
+						    response))) 0))
+               (target (aref (cdr (assq 'targets (assq 'result response) )) 0))
+               (line (cdr (assoc 'startLine target)))
+               (col  (cdr (assoc 'startColumn target))))
+    (find-file (format "%s" files))
+    (goto-line line)
+    (move-to-column (- col 1))))
+
+(defun dart-jump-to-defn ()
+  "Takes you to the definition of the symbol."
+  (interactive)
+  (dart--analysis-server-send
+   "analysis.getNavigation"
+   `((file . ,(buffer-file-name))
+     (offset . ,(beginning-of-thing 'symbol))
+     (length . ,(+ 1 (- (skip-syntax-forward "^ (")
+			(skip-syntax-backward " ")))))
+   (lambda (response)
+     (dart--process-nav-info response))))
 
 ;;; Initialization
 
