@@ -880,14 +880,16 @@ true for positions before the start of the statement, but on its line."
 (defun dart-jump-to-defn ()
   "Takes you to the definition of the symbol."
   (interactive)
-  (dart--analysis-server-send
-   "analysis.getNavigation"
-   `((file . ,(buffer-file-name))
-     (offset . ,(beginning-of-thing 'symbol))
-     (length . ,(+ 1 (- (skip-syntax-forward "^ (")
-			(skip-syntax-backward " ")))))
-   (lambda (response)
-     (dart--process-nav-info response))))
+  (let* ((bounds (bounds-of-thing-at-point 'symbol))
+	 (start (car bounds))
+	 (end (cdr bounds)))
+    (dart--analysis-server-send
+     "analysis.getNavigation"
+     `((file . ,(buffer-file-name))
+       (offset . ,(- start 1))
+       (length . ,(- end start)))
+     (lambda (response)
+       (dart--process-nav-info response)))))
 
 ;;; Initialization
 
