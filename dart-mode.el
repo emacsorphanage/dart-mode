@@ -862,17 +862,22 @@ true for positions before the start of the statement, but on its line."
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
 
-(defun dart--process-nav-info (response)
+(defun dart--process-nav-info (response offset)
   "Report the possible completions and jump to the location of the definition.
 
   Opens a new file in a new buffer if necessary."
-
   (dart-info (format "Reporting navigation : %s" response))
-  (-when-let* ((files (aref (cdr (assq 'files (assq 'result
-						    response))) 0))
-               (target (aref (cdr (assq 'targets (assq 'result response) )) 0))
-               (line (cdr (assoc 'startLine target)))
-               (col  (cdr (assoc 'startColumn target))))
+  (-when-let* ((regions (cdr (assq 'regions (assq 'result response))))
+	       (target-offset
+		(loop for region across regions
+		      if (equal offset (cdr (assoc 'offset region)))
+		      return (aref (cdr (assoc 'targets region)) 0)))
+	       (target (aref (cdr (assoc 'targets (assoc 'result response)))
+			     target-offset))
+	       (files (aref (cdr (assoc 'files (assoc 'result response)))
+			    (cdr (assoc 'fileIndex target))))
+	       (line (cdr (assoc 'startLine target)))
+	       (col  (cdr (assoc 'startColumn target))))
     (find-file (format "%s" files))
     (goto-line line)
     (move-to-column (- col 1))))
@@ -881,15 +886,15 @@ true for positions before the start of the statement, but on its line."
   "Takes you to the definition of the symbol."
   (interactive)
   (let* ((bounds (bounds-of-thing-at-point 'symbol))
-	 (start (car bounds))
-	 (end (cdr bounds)))
+	 (start-offset (- (car bounds) 1))
+	 (end-offset (- (cdr bounds) 1)))
     (dart--analysis-server-send
      "analysis.getNavigation"
      `((file . ,(buffer-file-name))
-       (offset . ,(- start 1))
-       (length . ,(- end start)))
+       (offset . ,start-offset)
+       (length . ,end-offset))
      (lambda (response)
-       (dart--process-nav-info response)))))
+       (dart--process-nav-info response start-offset)))))
 
 ;;; Initialization
 
@@ -909,16 +914,16 @@ Key bindings:
   (c-initialize-cc-mode t)
   (set-syntax-table dart-mode-syntax-table)
   (setq major-mode 'dart-mode
-        mode-name "Dart")
+	mode-name "Dart")
   (use-local-map dart-mode-map)
   (c-init-language-vars dart-mode)
   (c-common-init 'dart-mode)
   (c-set-style "dart")
   (when dart-enable-analysis-server
     (if (or (null dart-executable-path)
-            (null dart-analysis-server-snapshot-path))
-        (dart-log
-         "Cannot find `dart' executable or Dart analysis server snapshot.")
+	    (null dart-analysis-server-snapshot-path))
+	(dart-log
+	 "Cannot find `dart' executable or Dart analysis server snapshot.")
       (dart--start-analysis-server-for-current-buffer)))
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
