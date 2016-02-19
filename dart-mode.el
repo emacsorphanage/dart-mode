@@ -892,7 +892,7 @@ true for positions before the start of the statement, but on its line."
      "analysis.getNavigation"
      `((file . ,(buffer-file-name))
        (offset . ,start-offset)
-       (length . ,end-offset))
+       (length . ,(- end-offset start-offset)))
      (lambda (response)
        (dart--process-nav-info response start-offset)))))
 
@@ -914,7 +914,7 @@ Key bindings:
   (c-initialize-cc-mode t)
   (set-syntax-table dart-mode-syntax-table)
   (setq major-mode 'dart-mode
-	mode-name "Dart")
+  	mode-name "Dart")
   (use-local-map dart-mode-map)
   (c-init-language-vars dart-mode)
   (c-common-init 'dart-mode)
