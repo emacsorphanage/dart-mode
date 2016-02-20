@@ -745,6 +745,21 @@ the callback for that request is given the json decoded response."
                                 (-butlast buf-lines)))))
             (-each json-lines 'dart--analysis-server-handle-msg)))))))
 
+(defun dart--execute-analysis-callback (msg id callbacks)
+  "Execute different callbacks depending on the kind of response received.
+
+Argument MSG is the parsed response from the analysis server.
+Argument ID is the id of the event or response sent by the analysis server.
+Argument CALLBACKS is the list containing the callback to be executed."
+  (-if-let (resp-closure (assoc id callbacks))
+      (progn
+	(setq callbacks
+	      (assq-delete-all id callbacks))
+	(funcall (cdr resp-closure) msg))
+    (-if-let (err (assoc 'error msg))
+	(dart--analysis-server-on-error-callback msg)
+      (dart-info (format "No callback was associated with id %s" raw-id)))))
+
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
   (-when-let* ((event-assoc (assoc 'event msg))
@@ -752,25 +767,11 @@ the callback for that request is given the json decoded response."
 	       (id-assoc (assoc 'id params-assoc))
 	       (raw-id (cdr id-assoc))
 	       (id (string-to-number raw-id)))
-    (-if-let (resp-closure (assoc id dart--analysis-completion-callbacks))
-    	(progn
-    	  (setq dart--analysis-completion-callbacks
-    		(assq-delete-all id dart--analysis-completion-callbacks))
-    	  (funcall (cdr resp-closure) msg))
-      (-if-let (err (assoc 'error msg))
-    	  (dart--analysis-server-on-error-callback msg)
-    	(dart-info (format "No callback was associated with id %s" raw-id)))))
+    (dart--execute-analysis-callback msg id dart--analysis-completion-callbacks))
   (-when-let* ((id-assoc (assoc 'id msg))
                (raw-id (cdr id-assoc))
                (id (string-to-number raw-id)))
-    (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
-        (progn
-          (setq dart--analysis-server-callbacks
-                (assq-delete-all id dart--analysis-server-callbacks))
-          (funcall (cdr resp-closure) msg))
-      (-if-let (err (assoc 'error msg))
-          (dart--analysis-server-on-error-callback msg)
-        (dart-info (format "No callback was associated with id %s" raw-id))))))
+    (dart--execute-analysis-callback msg id dart--analysis-server-callbacks)))
 
 (defun dart--flycheck-start (_ callback)
   "Run the CHECKER and report the errors to the CALLBACK."
@@ -865,20 +866,26 @@ true for positions before the start of the statement, but on its line."
 (defun dart--process-nav-info (response offset)
   "Report the possible completions and jump to the location of the definition.
 
-  Opens a new file in a new buffer if necessary."
+Opens a new file in a new buffer if necessary.
+Argument RESPONSE holds the navigation information received from the analysis
+server.
+Argument OFFSET is the offset of the symbol we are trying to navigate to.
+Match this against the data returned by the server to locate the correct
+location to jump to."
   (dart-info (format "Reporting navigation : %s" response))
-  (-when-let* ((regions (cdr (assq 'regions (assq 'result response))))
+  (-when-let* ((result (assoc 'result response))
+	       (regions (cdr (assoc 'regions result)))
 	       (target-offset
 		(loop for region across regions
 		      if (equal offset (cdr (assoc 'offset region)))
 		      return (aref (cdr (assoc 'targets region)) 0)))
-	       (target (aref (cdr (assoc 'targets (assoc 'result response)))
+	       (target (aref (cdr (assoc 'targets result))
 			     target-offset))
-	       (files (aref (cdr (assoc 'files (assoc 'result response)))
-			    (cdr (assoc 'fileIndex target))))
+	       (file (aref (cdr (assoc 'files result))
+			   (cdr (assoc 'fileIndex target))))
 	       (line (cdr (assoc 'startLine target)))
 	       (col  (cdr (assoc 'startColumn target))))
-    (find-file (format "%s" files))
+    (find-file file)
     (goto-line line)
     (move-to-column (- col 1))))
 
