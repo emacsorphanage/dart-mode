@@ -921,16 +921,16 @@ Key bindings:
   (c-initialize-cc-mode t)
   (set-syntax-table dart-mode-syntax-table)
   (setq major-mode 'dart-mode
-  	mode-name "Dart")
+        mode-name "Dart")
   (use-local-map dart-mode-map)
   (c-init-language-vars dart-mode)
   (c-common-init 'dart-mode)
   (c-set-style "dart")
   (when dart-enable-analysis-server
     (if (or (null dart-executable-path)
-	    (null dart-analysis-server-snapshot-path))
-	(dart-log
-	 "Cannot find `dart' executable or Dart analysis server snapshot.")
+            (null dart-analysis-server-snapshot-path))
+        (dart-log
+         "Cannot find `dart' executable or Dart analysis server snapshot.")
       (dart--start-analysis-server-for-current-buffer)))
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
