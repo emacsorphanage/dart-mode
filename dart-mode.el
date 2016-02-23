@@ -758,7 +758,7 @@ Argument CALLBACKS is the list containing the callback to be executed."
 	(funcall (cdr resp-closure) msg))
     (-if-let (err (assoc 'error msg))
 	(dart--analysis-server-on-error-callback msg)
-      (dart-info (format "No callback was associated with id %s" raw-id)))))
+      (dart-info (format "No callback was associated with id %s" id)))))
 
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
