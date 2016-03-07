@@ -512,6 +512,18 @@ navigation, and more."
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
 
+(defvar dart--last-analyzed-buffer nil
+  "The last buffer analyzed before switching buffers.
+
+This is used to ensure that we resubscribe to events when we switch
+buffers, even if the buffers have not changed.")
+
+(defvar dart--navigation-response nil
+  "The response received within a navigation event.")
+
+(defvar dart-completion-callback nil
+  "The callback to call to support completion.")
+
 (defcustom dart-executable-path (executable-find "dart")
   "The absolute path to the 'dart' executable."
   :group 'dart-mode
@@ -574,6 +586,7 @@ directory or the current file directory to the analysis roots."
   (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
   (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
   (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
+  (add-hook #'buffer-list-update-hook #'dart--change-subscriptions)
   (add-to-list 'flycheck-checkers 'dart-analysis-server))
 
 (defun dart-start-analysis-server ()
@@ -753,11 +766,13 @@ Argument ID is the id of the event or response sent by the analysis server."
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
   (-if-let* ((event-assoc (assoc 'event msg))
-	     (params-assoc (assoc 'params msg))
-	     (id-assoc (assoc 'id params-assoc))
-	     (raw-id (cdr id-assoc))
-	     (id (string-to-number raw-id)))
-      (dart--execute-analysis-callback msg id)
+	     (event (cdr event-assoc)))
+      (progn
+	(if (string= event "analysis.navigation")
+	    (setq dart--navigation-response msg)
+	  (-if-let* ((string= event "completion.results"))
+	      (if dart-completion-callback
+		  (funcall dart-completion-callback msg)))))
     (-when-let* ((id-assoc (assoc 'id msg))
 		 (raw-id (cdr id-assoc))
 		 (id (string-to-number raw-id)))
@@ -863,15 +878,15 @@ Argument OFFSET is the offset of the symbol we are trying to navigate to.
 Match this against the data returned by the server to locate the correct
 location to jump to."
   (dart-info (format "Reporting navigation : %s" response))
-  (-when-let* ((result (assoc 'result response))
-	       (regions (cdr (assoc 'regions result)))
+  (-when-let* ((params (assoc 'params response))
+	       (regions (cdr (assoc 'regions params)))
 	       (target-offset
 		(loop for region across regions
 		      if (equal offset (cdr (assoc 'offset region)))
 		      return (aref (cdr (assoc 'targets region)) 0)))
-	       (target (aref (cdr (assoc 'targets result))
+	       (target (aref (cdr (assoc 'targets params))
 			     target-offset))
-	       (file (aref (cdr (assoc 'files result))
+	       (file (aref (cdr (assoc 'files params))
 			   (cdr (assoc 'fileIndex target))))
 	       (line (cdr (assoc 'startLine target)))
 	       (col  (cdr (assoc 'startColumn target))))
@@ -885,13 +900,25 @@ location to jump to."
   (let* ((bounds (bounds-of-thing-at-point 'symbol))
 	 (start-offset (- (car bounds) 1))
 	 (end-offset (- (cdr bounds) 1)))
-    (dart--analysis-server-send
-     "analysis.getNavigation"
-     `((file . ,(buffer-file-name))
-       (offset . ,start-offset)
-       (length . ,(- end-offset start-offset)))
-     (lambda (response)
-       (dart--process-nav-info response start-offset)))))
+    (dart--process-nav-info dart--navigation-response start-offset)))
+
+
+(defun dart--change-subscriptions ()
+  "Used to set subscriptions when we switch buffers."
+  ;; The analysis server changes what is the current buffer.  This can cause an
+  ;; infinite loop.  Checking the ‘buffer-list’ avoids infinite loops"
+  (-when-let* ((buf (car (buffer-list)))
+	       (buf-file (buffer-file-name buf)))
+    (with-current-buffer buf
+      (if (and (eq major-mode 'dart-mode)
+	       (not (eq buf dart--last-analyzed-buffer)))
+	  (progn
+	    (setq dart--last-analyzed-buffer buf)
+	    (dart--analysis-server-send
+	     "analysis.setSubscriptions"
+	     `((subscriptions . (("NAVIGATION" . (,buf-file))
+				 ("OUTLINE" . (,buf-file)))))))))))
+
 
 ;;; Initialization
 
