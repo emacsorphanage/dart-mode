@@ -904,10 +904,9 @@ location to jump to."
 
 
 (defun dart--change-subscriptions ()
-  "Used to set subscriptions when we switch buffers.
-
-The analysis server changes what is the current buffer.  This can cause an
-infinite loop.  Checking the ‘buffer-list’ avoids infinite loops"
+  "Used to set subscriptions when we switch buffers."
+  ;; The analysis server changes what is the current buffer.  This can cause an
+  ;; infinite loop.  Checking the ‘buffer-list’ avoids infinite loops"
   (-when-let* ((buf (car (buffer-list)))
 	       (buf-file (buffer-file-name buf)))
     (with-current-buffer buf
