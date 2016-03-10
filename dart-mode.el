@@ -919,6 +919,35 @@ location to jump to."
 	     `((subscriptions . (("NAVIGATION" . (,buf-file))
 				 ("OUTLINE" . (,buf-file)))))))))))
 
+(defun dart--process-format-info (response buffer point)
+  "Replace  contents with formatted contents.
+
+Argument RESPONSE is the reformatted content received from the analysis server.
+Argument BUFFER is the buffer whose contents are to be replaced.
+Argument POINT restore point after inserting new content."
+
+  (dart-info (format "Reporting edit.format : %s" response))
+  (-when-let* ((edit (cdr (assoc 'edits (assoc 'result response))))
+	       (l (>  (length edit) 0))
+	       (replacement  (cdr (assoc 'replacement (aref edit 0)))))
+    (set-buffer buffer)
+    (erase-buffer)
+    (insert replacement)
+    (goto-char point)))
+
+(defun dart-format-file ()
+  "Formats the entire file"
+  (interactive)
+  (dart--analysis-server-send
+   "edit.format"
+   `((file . ,(buffer-file-name))
+     (selectionOffset . ,(point-min))
+     (selectionLength . ,(- (buffer-size) 1))
+     (lineLength . 80))
+   (let ((buffer (current-buffer))
+	 (point (point)))
+     (lambda (response)
+       (dart--process-format-info response buffer point)))))
 
 ;;; Initialization
 
