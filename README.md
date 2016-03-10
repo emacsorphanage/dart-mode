@@ -19,3 +19,11 @@ Dart Mode is a major mode for editing Dart files in Emacs.
     (setq dart-enable-analysis-server t)
     (add-hook 'dart-mode-hook 'flycheck-mode)
     ```
+
+1.  OPTIONAL: To enable imenu support, add the
+    following to your `.emacs` file:
+    ```
+	(add-hook 'dart-mode-hook
+          (lambda ()
+            (setq imenu-create-index-function #'dart-imenu-index)))
+    ```

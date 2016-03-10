@@ -749,6 +749,38 @@ the callback for that request is given the json decoded response."
                                 (-butlast buf-lines)))))
             (-each json-lines 'dart--analysis-server-handle-msg)))))))
 
+(defun dart--outline-class (class)
+  "Builds the structure needed by Imenu.
+
+Argument CLASS is the class for which structure is being built"
+  (let ((name (cdr (assoc 'name (cdr (assoc 'element class)))))
+	(children (cdr (assoc 'children class)))
+	(class-items '()))
+    (mapc (lambda (child)
+	    (let* ((element (cdr (assoc 'element child)))
+		   (e-name (cdr (assoc 'name element)))
+		   (offset (cdr (assoc 'offset (cdr (assoc 'location
+							   element))))))
+	      (push (cons e-name offset) class-items)))
+	  children)
+    (if class-items `(,name . ,class-items))))
+
+(defun dart--execute-outline-callback (msg)
+  "Called when a completion event is received.
+
+Argument MSG is the response sent by the analysis server."
+  ;;Parse the response and store it in a variable. This variable is used when
+  ;;the user requests an outline.
+  (setq dart--imenu-candidates
+	(let* ((classes '()))
+	  (-when-let* ((outline (cdr (assoc 'outline (assoc 'params msg))))
+		       (children (cdr (assoc 'children outline))))
+	    (mapc (lambda (child)
+		    (-if-let (candidates (dart--outline-class child))
+			(push candidates classes)))
+		  children))
+	  (delq nil classes))))
+
 (defun dart--execute-analysis-callback (msg id)
   "Execute different callbacks depending on the kind of response received.
 
@@ -768,11 +800,13 @@ Argument ID is the id of the event or response sent by the analysis server."
   (-if-let* ((event-assoc (assoc 'event msg))
 	     (event (cdr event-assoc)))
       (progn
-	(if (string= event "analysis.navigation")
-	    (setq dart--navigation-response msg)
-	  (-if-let* ((string= event "completion.results"))
-	      (if dart-completion-callback
-		  (funcall dart-completion-callback msg)))))
+	(if (string= event "analysis.outline")
+	    (dart--execute-outline-callback msg)
+	  (if (string= event "analysis.navigation")
+	      (setq dart--navigation-response msg)
+	    (if (and (string= event "completion.results")
+		     dart-completion-callback)
+		(funcall dart-completion-callback msg)))))
     (-when-let* ((id-assoc (assoc 'id msg))
 		 (raw-id (cdr id-assoc))
 		 (id (string-to-number raw-id)))
@@ -920,6 +954,9 @@ infinite loop.  Checking the ‘buffer-list’ avoids infinite loops"
 	     `((subscriptions . (("NAVIGATION" . (,buf-file))
 				 ("OUTLINE" . (,buf-file)))))))))))
 
+(defun dart-imenu-index ()
+  "Callback invoked by imenu-create-index-function."
+  dart--imenu-candidates)
 
 ;;; Initialization
 
