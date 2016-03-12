@@ -524,6 +524,9 @@ buffers, even if the buffers have not changed.")
 (defvar dart-completion-callback nil
   "The callback to call to support completion.")
 
+(defvar dart--imenu-candidates nil
+  "Store formatted imenu candidates")
+
 (defcustom dart-executable-path (executable-find "dart")
   "The absolute path to the 'dart' executable."
   :group 'dart-mode
