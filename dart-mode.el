@@ -281,8 +281,9 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
          ;; code block.
          (= (char-before) ?\))
          ;; "else" and "try" are the only keywords that come immediately before
-         ;; a block.
-         (looking-back "\\<\\(else\\|try\\)\\>")
+         ;; a block.  Look only back at most 4 characters (the length of
+         ;; "else") for performance reasons.
+         (looking-back "\\<\\(else\\|try\\)\\>" (- (point) 4))
          ;; CC is good at figuring out if we're in a class.
          (assq 'inclass syntax-guess))))))
 
