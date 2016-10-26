@@ -46,25 +46,10 @@
 
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
 
+(require 'cl-lib)
 (require 'dash)
 (require 'flycheck)
 (require 'json)
-
-;; See https://debbugs.gnu.org/cgi/bugreport.cgi?bug=18845. cc-mode before 24.4
-;; uses 'cl without requiring it but we use 'cl-lib in this package. We can
-;; simply require 'cl past 24.4 but need to work around the dependency for
-;; earlier versions.
-(eval-when-compile
-  (unless (require 'cl-lib nil t)
-    (require 'cl)))
-
-(eval-and-compile
-  (if (version<= "24.4" emacs-version)
-    (require 'cl)))
-
-(if (version< emacs-version "24.3")
-    (unless (fboundp 'cl-set-difference)
-      (defalias 'cl-set-difference 'set-difference)))
 
 ;;; CC configuration
 
@@ -249,10 +234,10 @@
 
 When indenting inline functions, we want to pretend that
 functions taking them as parameters essentially don't exist."
-  (destructuring-bind (syntax . anchor) info
+  (cl-destructuring-bind (syntax . anchor) info
     (let ((arglist-count
-           (loop for (symbol . _) in c-syntactic-context
-                 count (eq symbol 'arglist-cont-nonempty))))
+           (cl-loop for (symbol . _) in c-syntactic-context
+                    count (eq symbol 'arglist-cont-nonempty))))
       (if (> arglist-count 0)
           (- (* -1 c-basic-offset arglist-count)
              (if (eq syntax 'block-close) c-basic-offset 0))
@@ -261,7 +246,7 @@ functions taking them as parameters essentially don't exist."
 (defun dart-brace-list-cont-nonempty-offset (info)
   "Indent a brace-list line in the same style as arglist-cont-nonempty.
 This could be either an actual brace-list or an optional parameter."
-  (destructuring-bind (_ . anchor) info
+  (cl-destructuring-bind (_ . anchor) info
     ;; If we're in a function definition with optional arguments, indent as if
     ;; the brace wasn't there. Currently this misses the in-function function
     ;; definition, but that's probably acceptable.
@@ -331,7 +316,7 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                (backward-up-list)
                (when (= (char-after) ?\[)
                  (setq ad-return-value
-                       `((,(case type
+                       `((,(cl-case type
                              (arglist-intro 'brace-list-intro)
                              (arglist-cont 'brace-list-entry)
                              (arglist-cont-nonempty 'dart-brace-list-cont-nonempty)
@@ -831,10 +816,10 @@ true for positions before the start of the statement, but on its line."
    (save-excursion
      (skip-syntax-backward " ")
      (when (bolp)
-       (loop do (forward-char -1)
+       (cl-loop do (forward-char -1)
              while (looking-at "^ *$"))
        (skip-syntax-backward " ")
-       (case (char-before)
+       (cl-case (char-before)
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
