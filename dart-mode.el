@@ -222,6 +222,7 @@
   "Keymap used in dart-mode buffers.")
 
 (define-key dart-mode-map (kbd "C-M-q") 'dart-format-statement)
+(define-key dart-mode-map (kbd "M-.") 'dart-jump-to-defn)
 
 
 ;;; CC indentation support
@@ -497,6 +498,18 @@ navigation, and more."
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
 
+(defvar dart--last-analyzed-buffer nil
+  "The last buffer analyzed before switching buffers.
+
+This is used to ensure that we resubscribe to events when we switch
+buffers, even if the buffers have not changed.")
+
+(defvar dart--navigation-response nil
+  "The response received within a navigation event.")
+
+(defvar dart-completion-callback nil
+  "The callback to call to support completion.")
+
 (defcustom dart-executable-path (executable-find "dart")
   "The absolute path to the 'dart' executable."
   :group 'dart-mode
@@ -559,6 +572,7 @@ directory or the current file directory to the analysis roots."
   (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
   (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
   (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
+  (add-hook #'buffer-list-update-hook #'dart--change-subscriptions)
   (add-to-list 'flycheck-checkers 'dart-analysis-server))
 
 (defun dart-start-analysis-server ()
@@ -721,19 +735,34 @@ the callback for that request is given the json decoded response."
                                 (-butlast buf-lines)))))
             (-each json-lines 'dart--analysis-server-handle-msg)))))))
 
+(defun dart--execute-analysis-callback (msg id)
+  "Execute different callbacks depending on the kind of response received.
+
+Argument MSG is the parsed response from the analysis server.
+Argument ID is the id of the event or response sent by the analysis server."
+  (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
+      (progn
+	(setq dart--analysis-server-callbacks
+	      (assq-delete-all id dart--analysis-server-callbacks))
+	(funcall (cdr resp-closure) msg))
+    (-if-let (err (assoc 'error msg))
+	(dart--analysis-server-on-error-callback msg)
+      (dart-info (format "No callback was associated with id %s" id)))))
+
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
-  (-when-let* ((id-assoc (assoc 'id msg))
-               (raw-id (cdr id-assoc))
-               (id (string-to-number raw-id)))
-    (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
-        (progn
-          (setq dart--analysis-server-callbacks
-                (assq-delete-all id dart--analysis-server-callbacks))
-          (funcall (cdr resp-closure) msg))
-      (-if-let (err (assoc 'error msg))
-          (dart--analysis-server-on-error-callback msg)
-        (dart-info (format "No callback was associated with id %s" raw-id))))))
+  (-if-let* ((event-assoc (assoc 'event msg))
+	     (event (cdr event-assoc)))
+      (progn
+	(if (string= event "analysis.navigation")
+	    (setq dart--navigation-response msg)
+	  (-if-let* ((string= event "completion.results"))
+	      (if dart-completion-callback
+		  (funcall dart-completion-callback msg)))))
+    (-when-let* ((id-assoc (assoc 'id msg))
+		 (raw-id (cdr id-assoc))
+		 (id (string-to-number raw-id)))
+      (dart--execute-analysis-callback msg id))))
 
 (defun dart--flycheck-start (_ callback)
   "Run the CHECKER and report the errors to the CALLBACK."
@@ -823,6 +852,58 @@ true for positions before the start of the statement, but on its line."
        (cl-case (char-before)
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
+
+
+(defun dart--process-nav-info (response offset)
+  "Report the possible completions and jump to the location of the definition.
+
+Opens a new file in a new buffer if necessary.
+Argument RESPONSE holds the navigation information received from the analysis
+server.
+Argument OFFSET is the offset of the symbol we are trying to navigate to.
+Match this against the data returned by the server to locate the correct
+location to jump to."
+  (dart-info (format "Reporting navigation : %s" response))
+  (-when-let* ((params (assoc 'params response))
+	       (regions (cdr (assoc 'regions params)))
+	       (target-offset
+		(loop for region across regions
+		      if (equal offset (cdr (assoc 'offset region)))
+		      return (aref (cdr (assoc 'targets region)) 0)))
+	       (target (aref (cdr (assoc 'targets params))
+			     target-offset))
+	       (file (aref (cdr (assoc 'files params))
+			   (cdr (assoc 'fileIndex target))))
+	       (line (cdr (assoc 'startLine target)))
+	       (col  (cdr (assoc 'startColumn target))))
+    (find-file file)
+    (goto-line line)
+    (move-to-column (- col 1))))
+
+(defun dart-jump-to-defn ()
+  "Takes you to the definition of the symbol."
+  (interactive)
+  (let* ((bounds (bounds-of-thing-at-point 'symbol))
+	 (start-offset (- (car bounds) 1))
+	 (end-offset (- (cdr bounds) 1)))
+    (dart--process-nav-info dart--navigation-response start-offset)))
+
+
+(defun dart--change-subscriptions ()
+  "Used to set subscriptions when we switch buffers."
+  ;; The analysis server changes what is the current buffer.  This can cause an
+  ;; infinite loop.  Checking the ‘buffer-list’ avoids infinite loops"
+  (-when-let* ((buf (car (buffer-list)))
+	       (buf-file (buffer-file-name buf)))
+    (with-current-buffer buf
+      (if (and (eq major-mode 'dart-mode)
+	       (not (eq buf dart--last-analyzed-buffer)))
+	  (progn
+	    (setq dart--last-analyzed-buffer buf)
+	    (dart--analysis-server-send
+	     "analysis.setSubscriptions"
+	     `((subscriptions . (("NAVIGATION" . (,buf-file))
+				 ("OUTLINE" . (,buf-file)))))))))))
 
 
 ;;; Initialization
