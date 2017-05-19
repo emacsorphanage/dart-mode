@@ -90,6 +90,7 @@
 (eval-and-compile (c-add-language 'dart-mode 'java-mode))
 
 (require 'cl-lib)
+(require 'compile)
 (require 'dash)
 (require 'flycheck)
 (require 'json)
