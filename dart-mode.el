@@ -82,7 +82,6 @@
 (eval-when-compile
   (and (= emacs-major-version 24)
        (>= emacs-minor-version 4)
-       (null emacs-repository-version)
        (require 'cl))
   (require 'cc-langs)
   (require 'cc-fonts))
