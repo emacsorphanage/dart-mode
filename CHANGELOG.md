@@ -18,5 +18,8 @@
 * Added a `dart-find-member-refs` command bound to `C-c C-r` which shows a list
   of references to members with a given name.
 
+* Added a `dart-expand` command bound to `M-/` which cycles through possible
+  completions for the text typed by the user.
+
 * `dart-executable-path`'s default value is now set correctly even if the
   executable named `dart` on the user's path is a symlink or a wrapper script.

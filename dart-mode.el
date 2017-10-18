@@ -422,6 +422,7 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
 (define-key dart-mode-map (kbd "C-c C-e") 'dart-find-member-decls)
 (define-key dart-mode-map (kbd "C-c C-r") 'dart-find-member-refs)
 (define-key dart-mode-map (kbd "C-c C-t") 'dart-find-top-level-decls)
+(define-key dart-mode-map (kbd "M-/") 'dart-expand)
 
 ;;; CC indentation support
 
@@ -1349,6 +1350,110 @@ to add a header and otherwise prepare it for displaying results."
     (find-file file)
     (goto-char (+ 1 offset))
     (dart--flash-highlight offset length)))
+
+;;;; Auto-complete
+
+(defvar dart--last-expand-results nil
+  "The results of the last call to `dart-expand'.")
+
+(defvar dart--last-expand-offset nil
+  "The offset of the text inserted by the last call to `dart-expand'.")
+
+(defvar dart--last-expand-length nil
+  "The length of the text inserted by the last call to `dart-expand'.")
+
+(defvar dart--last-expand-index nil
+  "The index into `dart--last-expand-results' for the last call to `dart-expand'.")
+
+(defvar dart--last-expand-subscription nil
+  "The last analysis server subscription from a call to `dart-expand'.")
+
+(defun dart-expand ()
+  "Expand previous word using Dart's autocompletion."
+  (interactive "*")
+  (if (and (eq last-command 'dart-expand) dart--last-expand-results)
+      (progn
+        (incf dart--last-expand-index)
+        (when (>= dart--last-expand-index (length dart--last-expand-results))
+          (setq dart--last-expand-index 0))
+        (dart--use-expand-suggestion
+         dart--last-expand-offset
+         dart--last-expand-length
+         (elt dart--last-expand-results dart--last-expand-index)))
+
+    (when dart--last-expand-subscription
+      (dart--analysis-server-unsubscribe dart--last-expand-subscription))
+    (setq dart--last-expand-results nil)
+    (setq dart--last-expand-offset nil)
+    (setq dart--last-expand-length nil)
+    (setq dart--last-expand-index nil)
+    (setq dart--last-expand-subscription nil)
+
+    (-when-let (filename (buffer-file-name))
+      (dart--analysis-server-send
+       "completion.getSuggestions"
+       `(("file" . ,filename)
+         ("offset" . ,(- (point) 1)))
+       (lexical-let ((buffer (current-buffer)))
+         (lambda (response)
+           (-when-let (result (cdr (assoc 'result response)))
+             (lexical-let ((completion-id (cdr (assoc 'id result)))
+                           (first t))
+               (dart--analysis-server-subscribe
+                "completion.results"
+                (setq dart--last-expand-subscription
+                      (lambda (event subscription)
+                        (dart--json-let event
+                            (id results
+                                (offset replacementOffset)
+                                (length replacementLength)
+                                (is-last isLast))
+                          (when is-last (dart--analysis-server-unsubscribe subscription))
+
+                          (when (equal id completion-id)
+                            (with-current-buffer buffer
+                              (dart--handle-completion-event results offset length first))
+                            (setq first nil))))))))))))))
+
+(defun dart--handle-completion-event (results offset length first)
+  "Handles a completion results event.
+
+If FIRST is non-nil, this is the first completion event for this completion."
+  ;; Get rid of any suggestions that don't match
+  ;; existing characters. The analysis server provides
+  ;; extra suggestions to support search-as-you-type,
+  ;; but we don't do that.
+  (when (> length 0)
+    (lexical-let ((text (buffer-substring (+ offset 1) (+ offset length 1))))
+      (setq results
+            (remove-if-not
+             (lambda (suggestion)
+               (string-prefix-p text (cdr (assoc 'completion suggestion)) t))
+             results))))
+
+  (when (> (length results) 0)
+    ;; Fill the first result so the first call does
+    ;; something. Just save later results for future
+    ;; calls.
+    (when first
+      (setq dart--last-expand-index 0)
+      (setq dart--last-expand-offset (+ offset 1))
+      (dart--use-expand-suggestion (+ offset 1) length (elt results 0)))
+
+    (setq first nil)
+    (setq dart--last-expand-results results)))
+
+(defun dart--use-expand-suggestion (offset length suggestion)
+  "Inserts SUGGESTION at OFFSET and LENGTH."
+  (dart--json-let suggestion
+      (completion
+       (selection-offset selectionOffset))
+    (setq dart--last-expand-length (length completion))
+
+    (goto-char offset)
+    (delete-char length)
+    (save-excursion (insert completion))
+    (forward-char selection-offset)))
 
 
 ;;; Popup Mode

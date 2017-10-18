@@ -6,6 +6,7 @@
   * [Seeing Information](#seeing-information)
   * [Navigation](#navigation)
   * [Search](#search)
+  * [Expansion](#expansion)
 
 ## Installation
 
@@ -79,3 +80,13 @@ the last "Found X results" line, you know for sure you're seeing everything!
   press `C-c C-r`. This will show you everywhere a member with that name is
   called, even if it's in a dynamic context and the analyzer can't figure out
   what it's referring to.
+
+### Expansion
+
+If you press `M-/`, the analyzer will try to expand whatever text you've already
+typed into a valid identifier. This uses the same logic that IDEs use for
+autocomplete, but the UI works like Emacs' [`dabbrev-expand`][dabbrev] command.
+You can press `M-/` multiple times in a row to cycle through possible
+completions.
+
+[dabbrev]: https://www.gnu.org/software/emacs/manual/html_node/emacs/Dynamic-Abbrevs.html
