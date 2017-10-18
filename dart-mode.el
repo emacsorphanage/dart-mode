@@ -3,7 +3,7 @@
 ;; Author: Natalie Weizenbaum
 ;; URL: https://github.com/nex3/dart-mode
 ;; Version: 1.0.0
-;; Package-Requires: ((cl-lib "0.5") (dash "2.10.0") (flycheck "0.23"))
+;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23"))
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
@@ -210,7 +210,7 @@ Converts TEXT to a string if it's not already."
   "Briefly highlights the text defined by OFFSET and LENGTH.
 OFFSET and LENGTH are expected to come from the analysis server,
 rather than Elisp."
-  (lexical-let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
+  (let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
     (overlay-put overlay 'face 'highlight)
     (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
 
@@ -1054,9 +1054,9 @@ With a prefix argument, opens a new buffer rather than using the
 minibuffer."
   (interactive "P")
   (-when-let (filename (buffer-file-name))
-    (lexical-let ((show-in-buffer show-in-buffer)
-                  (buffer (current-buffer))
-                  (pos (point)))
+    (let ((show-in-buffer show-in-buffer)
+          (buffer (current-buffer))
+          (pos (point)))
       (dart--analysis-server-send
        "analysis.getHover"
        `(("file" . ,filename) ("offset" . ,pos))
@@ -1221,13 +1221,12 @@ minibuffer."
      `(("file" . ,filename)
        ("offset" . ,pos)
        ("includePotential" . ,(or include-potential json-false)))
-     (lexical-let ((buffer (current-buffer))
-                   (pos pos)
-                   (include-potential include-potential))
+     (let ((buffer (current-buffer))
+           (include-potential include-potential))
        (lambda (response)
          (-when-let (result (dart--get response 'result))
-           (lexical-let ((name (dart--get result 'element 'name))
-                         (location (dart--get result 'element 'location)))
+           (let ((name (dart--get result 'element 'name))
+                 (location (dart--get result 'element 'location)))
              (dart--display-search-results
               (dart--get result 'id)
               (lambda () 
@@ -1268,29 +1267,24 @@ ARGUMENT. Displays a header beginning with HEADER in the results."
   (dart--analysis-server-send
    method
    (list (cons argument name))
-   (lexical-let ((method method)
-                 (argument argument)
-                 (name name)
-                 (header header))
-     (lambda (response)
-       (-when-let (id (dart--get response 'result 'id))
-         (dart--display-search-results
-          id
-          (lambda ()
-            (setq dart--do-it-again-callback
-                  (lambda ()
-                    (dart--find-by-name method argument name header)))
-            (insert header name ":\n\n"))))))))
+   (lambda (response)
+     (-when-let (id (dart--get response 'result 'id))
+       (dart--display-search-results
+        id
+        (lambda ()
+          (setq dart--do-it-again-callback
+                (lambda ()
+                  (dart--find-by-name method argument name header)))
+          (insert header name ":\n\n")))))))
 
 (defun dart--display-search-results (search-id callback)
   "Displays search results with the given SEARCH-ID.
 
 CALLBACK is called with no arguments in the search result buffer
 to add a header and otherwise prepare it for displaying results."
-  (lexical-let* (buffer
-                 (search-id search-id)
-                 beginning-of-results
-                 (total-results 0))
+  (let (buffer
+        beginning-of-results
+        (total-results 0))
     (with-current-buffer-window
      "*Dart Search*" nil nil
      (dart-popup-mode)
@@ -1309,37 +1303,39 @@ to add a header and otherwise prepare it for displaying results."
                   (goto-char (point-max))
                   (loop
                    for result across results
-                   do (lexical-let ((location (dart--get result 'location))
-                                    (path (dart--get result 'path)))
-                        (let ((start (point)))
-                          (dart--fontify-excursion '(compilation-info underline)
-                            (when (cl-some
-                                   (lambda (element)
-                                     (equal (dart--get element 'kind) "CONSTRUCTOR"))
-                                   path)
-                              (insert "new "))
+                   do (let ((location (dart--get result 'location))
+                            (path (dart--get result 'path))
+                            (start (point)))
+                        (dart--fontify-excursion '(compilation-info underline)
+                          (when (cl-some
+                                 (lambda (element)
+                                   (equal (dart--get element 'kind) "CONSTRUCTOR"))
+                                 path)
+                            (insert "new "))
 
-                            (insert
-                             (loop for element across path
-                                   unless (member (dart--get element 'kind)
-                                                  '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
-                                   unless (string-empty-p (dart--get element 'name))
-                                   collect (dart--get element 'name) into names
-                                   finally return (mapconcat 'identity (reverse names) ".")))
+                          (insert
+                           (loop for element across path
+                                 unless (member (dart--get element 'kind)
+                                                '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
+                                 unless (string-empty-p (dart--get element 'name))
+                                 collect (dart--get element 'name) into names
+                                 finally return (mapconcat 'identity (reverse names) ".")))
 
-                            (make-text-button
-                             start (point)
-                             'action (lambda (_) (dart--goto-location location))))
+                          (make-text-button
+                           start (point)
+                           'action (lambda (_) (dart--goto-location location))))
 
-                          (dart--json-let location (file (line startLine) (column startColumn))
-                            (insert " " file ":"
-                                    (dart--face-string line 'compilation-line-number) ":"
-                                    (dart--face-string column 'compilation-column-number) ?\n)))))
+                        (dart--json-let location (file (line startLine) (column startColumn))
+                          (insert " " file ":"
+                                  (dart--face-string line 'compilation-line-number) ":"
+                                  (dart--face-string column 'compilation-column-number) ?\n)))))
 
-                  (setq total-results (+ total-results (length results)))
+                (setq total-results (+ total-results (length results)))
 
-                  (when (eq is-last t)
-                    (dart--analysis-server-unsubscribe subscription)
+                (when (eq is-last t)
+                  (dart--analysis-server-unsubscribe subscription)
+                  (save-excursion
+                    (goto-char (point-max))
                     (insert "\nFound " (dart--face-string total-results 'bold) " results."))))))))))
 
     (select-window (get-buffer-window buffer))
@@ -1426,25 +1422,25 @@ stayas in place when the parameter is overwritten.")
          "completion.getSuggestions"
          `(("file" . ,filename)
            ("offset" . ,(- (point) 1)))
-         (lexical-let ((buffer (current-buffer)))
+         (let ((buffer (current-buffer))
+               (first t))
            (lambda (response)
              (-when-let (completion-id (dart--get response 'result 'id))
-               (lexical-let ((first t))
-                 (dart--analysis-server-subscribe
-                  "completion.results"
-                  (setq dart--last-expand-subscription
-                        (lambda (event subscription)
-                          (dart--json-let event
-                              (id results
-                                  (offset replacementOffset)
-                                  (length replacementLength)
-                                  (is-last isLast))
-                            (when is-last (dart--analysis-server-unsubscribe subscription))
+               (dart--analysis-server-subscribe
+                "completion.results"
+                (setq dart--last-expand-subscription
+                      (lambda (event subscription)
+                        (dart--json-let event
+                            (id results
+                                (offset replacementOffset)
+                                (length replacementLength)
+                                (is-last isLast))
+                          (when is-last (dart--analysis-server-unsubscribe subscription))
 
-                            (when (equal id completion-id)
-                              (with-current-buffer buffer
-                                (dart--handle-completion-event results offset length first))
-                              (setq first nil)))))))))))))))
+                          (when (equal id completion-id)
+                            (with-current-buffer buffer
+                              (dart--handle-completion-event results offset length first))
+                            (setq first nil))))))))))))))
 
 (defun dart--handle-completion-event (results offset length first)
   "Handles a completion results event.
@@ -1455,7 +1451,7 @@ If FIRST is non-nil, this is the first completion event for this completion."
   ;; extra suggestions to support search-as-you-type,
   ;; but we don't do that.
   (when (> length 0)
-    (lexical-let ((text (buffer-substring (+ offset 1) (+ offset length 1))))
+    (let ((text (buffer-substring (+ offset 1) (+ offset length 1))))
       (setq results
             (remove-if-not
              (lambda (suggestion)
