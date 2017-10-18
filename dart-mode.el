@@ -1458,14 +1458,50 @@ If FIRST is non-nil, this is the first completion event for this completion."
 (defun dart--use-expand-suggestion (offset length suggestion)
   "Inserts SUGGESTION at OFFSET and LENGTH."
   (dart--json-let suggestion
-      (completion
-       (selection-offset selectionOffset))
+      (completion element
+       (selection-offset selectionOffset)
+       (is-deprecated isDeprecated)
+       (doc-summary docSummary))
     (setq dart--last-expand-length (length completion))
 
     (goto-char offset)
     (delete-char length)
     (save-excursion (insert completion))
-    (forward-char selection-offset)))
+    (forward-char selection-offset)
+
+    (with-temp-buffer
+      (when (eq is-deprecated t)
+        (insert (dart--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
+
+      (insert (dart--highlight-description (dart--description-of-element element)))
+      (when doc-summary
+        (insert ?\n ?\n (dart--highlight-dartdoc doc-summary nil)))
+
+      (message "%s" (buffer-string)))))
+
+(defun dart--description-of-element (element)
+  "Returns a textual description of an analysis server ELEMENT."
+  (dart--json-let element
+      (kind name parameters
+       (return-type returnType)
+       (type-parameters typeParameters))
+    (with-temp-buffer
+      (if (equal kind "CONSTRUCTOR")
+          (progn
+            (insert "new " return-type)
+            (unless (string-empty-p name)
+              (insert "." name))
+            (insert parameters)
+            (insert " → " return-type))
+
+        (case kind
+          ("GETTER" (insert "get "))
+          ("SETTER" (insert "set ")))
+        (insert name)
+        (when type-parameters (insert type-parameters))
+        (when parameters (insert parameters))
+        (when return-type (insert " → " return-type)))
+      (buffer-string))))
 
 
 ;;; Popup Mode
