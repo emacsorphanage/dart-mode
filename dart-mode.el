@@ -94,6 +94,111 @@
 (require 'flycheck)
 (require 'json)
 
+
+;;; Utility functions and macros
+
+(defun dart-beginning-of-statement ()
+  "Moves to the beginning of a Dart statement.
+
+Unlike `c-beginning-of-statement', this handles maps correctly
+and will move to the top level of a bracketed statement."
+  (while
+      (progn
+        (back-to-indentation)
+        (while (eq (char-after) ?})
+          (forward-char)
+          (forward-sexp -1)
+          (back-to-indentation))
+        (when (not (-dart-beginning-of-statement-p)) (forward-line -1)))))
+
+(defun -dart-beginning-of-statement-p ()
+  "Returns whether the point is at the beginning of a statement.
+
+Statements are assumed to begin on their own lines. This returns
+true for positions before the start of the statement, but on its line."
+  (and
+   (save-excursion
+     (skip-syntax-forward " ")
+     (not (or (bolp) (eq (char-after) ?}))))
+   (save-excursion
+     (skip-syntax-backward " ")
+     (when (bolp)
+       (cl-loop do (forward-char -1)
+             while (looking-at "^ *$"))
+       (skip-syntax-backward " ")
+       (cl-case (char-before)
+         ((?} ?\;) t)
+         ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
+
+(defun dart--goto-line (line)
+  "Move to the specified line."
+  (goto-char (point-min))
+  (forward-line (1- line)))
+
+(defun dart--delete-whole-line (&optional arg)
+  "Delete the current line without putting it in the `kill-ring'.
+Derived from function `kill-whole-line'.  ARG is defined as for that
+function."
+  (setq arg (or arg 1))
+  (if (and (> arg 0)
+           (eobp)
+           (save-excursion (forward-visible-line 0) (eobp)))
+      (signal 'end-of-buffer nil))
+  (if (and (< arg 0)
+           (bobp)
+           (save-excursion (end-of-visible-line) (bobp)))
+      (signal 'beginning-of-buffer nil))
+  (cond ((zerop arg)
+         (delete-region (progn (forward-visible-line 0) (point))
+                        (progn (end-of-visible-line) (point))))
+        ((< arg 0)
+         (delete-region (progn (end-of-visible-line) (point))
+                        (progn (forward-visible-line (1+ arg))
+                               (unless (bobp)
+                                 (backward-char))
+                               (point))))
+        (t
+         (delete-region (progn (forward-visible-line 0) (point))
+                        (progn (forward-visible-line arg) (point))))))
+
+(defun dart--read-file (filename)
+  "Returns the contents of FILENAME."
+  (with-temp-buffer
+    (insert-file-contents filename)
+    (buffer-string)))
+
+(defmacro dart--with-temp-file (name-variable &rest body)
+  "Creates a temporary file for the duration of BODY.
+Assigns the filename to NAME-VARIABLE. Doesn't change the current buffer.
+Returns the value of the last form in BODY."
+  (declare (indent 1))
+  `(let ((,name-variable (make-temp-file "dart-mode.")))
+     (unwind-protect
+         (progn ,@body)
+       (delete-file ,name-variable))))
+
+(defun dart--run-process (executable &rest args)
+  "Runs EXECUTABLE with ARGS synchronously.
+Returns (STDOUT STDERR EXIT-CODE)."
+  (dart--with-temp-file stderr-file
+    (with-temp-buffer
+      (setq exit-code
+            (apply #'call-process
+                   executable nil (list t stderr-file) nil args))
+      (list
+       (buffer-string)
+       (dart--read-file stderr-file)
+       exit-code))))
+
+(defun dart--try-process (executable &rest args)
+  "Like `dart--run-process', but only returns stdout.
+Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
+  (let ((result (apply #'dart--run-process executable args)))
+    (unless (string-empty-p (nth 1 result))
+      (dart-log (format "Error running %S:\n%s" (cons executable args) (nth 1 result))))
+    (if (eq (nth 2 result) 0) (nth 0 result))))
+
+
 ;;; CC configuration
 
 (c-lang-defconst c-symbol-start
@@ -537,11 +642,24 @@ navigation, and more."
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
 
-(defcustom dart-executable-path (executable-find "dart")
+(defcustom dart-executable-path
+  ;; Use Platform.resolvedExecutable so that this logic works through symlinks
+  ;; and wrapper scripts.
+  (-when-let (dart (executable-find "dart"))
+    (dart--with-temp-file input
+      (with-temp-file input (insert "
+        import 'dart:io';
+
+        void main() {
+          print(Platform.resolvedExecutable);
+        }
+        "))
+      (-when-let (result (dart--try-process dart input))
+        (string-trim result))))
   "The absolute path to the 'dart' executable."
   :group 'dart-mode
   :type 'file
-  :package-version '(dart-mode . "0.12"))
+  :package-version '(dart-mode . "1.0.0"))
 
 (defcustom dart-analysis-server-snapshot-path
   (when dart-executable-path
@@ -972,74 +1090,6 @@ you save any file, kind of defeating the point of autoloading."
 
   (interactive)
   (when (eq major-mode 'dart-mode) (dartfmt)))
-
-
-;;; Utility functions
-
-(defun dart-beginning-of-statement ()
-  "Moves to the beginning of a Dart statement.
-
-Unlike `c-beginning-of-statement', this handles maps correctly
-and will move to the top level of a bracketed statement."
-  (while
-      (progn
-        (back-to-indentation)
-        (while (eq (char-after) ?})
-          (forward-char)
-          (forward-sexp -1)
-          (back-to-indentation))
-        (when (not (-dart-beginning-of-statement-p)) (forward-line -1)))))
-
-(defun -dart-beginning-of-statement-p ()
-  "Returns whether the point is at the beginning of a statement.
-
-Statements are assumed to begin on their own lines. This returns
-true for positions before the start of the statement, but on its line."
-  (and
-   (save-excursion
-     (skip-syntax-forward " ")
-     (not (or (bolp) (eq (char-after) ?}))))
-   (save-excursion
-     (skip-syntax-backward " ")
-     (when (bolp)
-       (cl-loop do (forward-char -1)
-             while (looking-at "^ *$"))
-       (skip-syntax-backward " ")
-       (cl-case (char-before)
-         ((?} ?\;) t)
-         ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
-
-(defun dart--goto-line (line)
-  "Move to the specified line."
-  (goto-char (point-min))
-  (forward-line (1- line)))
-
-(defun dart--delete-whole-line (&optional arg)
-  "Delete the current line without putting it in the `kill-ring'.
-Derived from function `kill-whole-line'.  ARG is defined as for that
-function."
-  (setq arg (or arg 1))
-  (if (and (> arg 0)
-           (eobp)
-           (save-excursion (forward-visible-line 0) (eobp)))
-      (signal 'end-of-buffer nil))
-  (if (and (< arg 0)
-           (bobp)
-           (save-excursion (end-of-visible-line) (bobp)))
-      (signal 'beginning-of-buffer nil))
-  (cond ((zerop arg)
-         (delete-region (progn (forward-visible-line 0) (point))
-                        (progn (end-of-visible-line) (point))))
-        ((< arg 0)
-         (delete-region (progn (end-of-visible-line) (point))
-                        (progn (forward-visible-line (1+ arg))
-                               (unless (bobp)
-                                 (backward-char))
-                               (point))))
-        (t
-         (delete-region (progn (forward-visible-line 0) (point))
-                        (progn (forward-visible-line arg) (point))))))
-
 
 
 ;;; Initialization
