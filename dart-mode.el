@@ -1011,6 +1011,7 @@ minibuffer."
                 (element-kind elementKind)
                 (is-deprecated isDeprecated)
                 parameter)
+             (setq is-deprecated (not (eq is-deprecated :json-false)))
 
              ;; Briefly highlight the region that's being shown.
              (with-current-buffer buffer
@@ -1019,6 +1020,9 @@ minibuffer."
                  (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
 
              (with-temp-buffer
+               (when is-deprecated
+                 (insert (dart--face-string "DEPRECATED" 'font-lock-warning-face) ?\n))
+
                (when element-description
                  (insert (dart--highlight-description element-description)
                          (dart--face-string (concat " (" element-kind ")") 'italic))
