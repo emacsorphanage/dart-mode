@@ -1026,7 +1026,7 @@ reported to CALLBACK."
                  (when dartdoc) (insert ?\n))
                (when dartdoc
                  (when (or element-description parameter) (insert ?\n))
-                 (insert dartdoc))
+                 (insert (dart--highlight-dartdoc dartdoc)))
                (message "%s" (buffer-string))))))))))
 
 (defconst dart--highlight-keyword-re
@@ -1088,6 +1088,22 @@ reported to CALLBACK."
      (and (looking-at (concat "\\(" dart--identifier-re "\\|[<>]\\)*"))
           (eq (char-after (match-end 0)) ?\()))))
 
+(defun dart--highlight-dartdoc (dartdoc)
+  "Returns a higlighted copy of DARTDOC."
+  (with-temp-buffer
+    (insert dartdoc)
+
+    ;; Cut off long dartdocs so that the full signature is always visible.
+    (goto-line 11)
+    (delete-region (- (point) 1) (point-max))
+
+    (goto-char (point-min))
+
+    (while (re-search-forward "\\[.*?\\]" nil t)
+      (put-text-property (match-beginning 0) (match-end 0)
+                         'face 'font-lock-reference-face))
+
+    (buffer-string)))
 
 ;;; Formatting
 
