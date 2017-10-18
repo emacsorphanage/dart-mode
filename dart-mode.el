@@ -1093,9 +1093,7 @@ minibuffer."
                      (with-current-buffer-window
                       "*Dart Analysis*" nil nil
                       (insert text)
-                      ;; We should really create our own mode, but this will do
-                      ;; in a pinch.
-                      (help-mode))
+                      (dart-popup-mode))
                    (message "%s" text)))))))))))
 
 (defconst dart--highlight-keyword-re
@@ -1268,6 +1266,7 @@ to add a header and otherwise prepare it for displaying results."
                  (total-results 0))
     (with-current-buffer-window
      "*Dart Search*" nil nil
+     (dart-popup-mode)
      (setq buffer (current-buffer))
      (apply callback nil)
      (setq beginning-of-results (point))
@@ -1327,6 +1326,31 @@ to add a header and otherwise prepare it for displaying results."
     (find-file file)
     (goto-char (+ 1 offset))
     (dart--flash-highlight offset length)))
+
+
+;;; Popup Mode
+
+(define-derived-mode dart-popup-mode fundamental-mode "DartPopup"
+  "Major mode for popups."
+  :mode 'dart-popup
+  (use-local-map dart-popup-mode-map))
+
+(put 'dart-popup-mode 'mode-class 'special)
+
+(defvar dart-popup-mode-map (make-sparse-keymap)
+  "Keymap used in Dart popup buffers.")
+(set-keymap-parent dart-popup-mode-map help-mode-map)
+
+;; Unbind help-specific keys.
+(define-key dart-popup-mode-map (kbd "RET") nil)
+(define-key dart-popup-mode-map (kbd "l") nil)
+(define-key dart-popup-mode-map (kbd "r") nil)
+(define-key dart-popup-mode-map (kbd "<XF86Back>") nil)
+(define-key dart-popup-mode-map (kbd "<XF86Forward>") nil)
+(define-key dart-popup-mode-map (kbd "<mouse-2>") nil)
+(define-key dart-popup-mode-map (kbd "C-c C-b") nil)
+(define-key dart-popup-mode-map (kbd "C-c C-c") nil)
+(define-key dart-popup-mode-map (kbd "C-c C-f") nil)
 
 ;;; Formatting
 
