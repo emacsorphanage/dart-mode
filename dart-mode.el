@@ -161,6 +161,11 @@ function."
          (delete-region (progn (forward-visible-line 0) (point))
                         (progn (forward-visible-line arg) (point))))))
 
+(defun dart--forward-identifier ()
+  "Moves the point forward through a Dart identifier."
+  (when (looking-at dart--identifier-re)
+    (goto-char (match-end 0))))
+
 (defmacro dart--json-let (json fields &rest body)
   "Assigns variables named FIELDS to the corresponding fields in JSON.
 FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
@@ -183,6 +188,14 @@ FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
 (defun dart--face-string (text face)
   "Returns a copy of TEXT with its font face set to FACE."
   (dart--property-string text 'face face))
+
+(defmacro dart--fontify-excursion (face &rest body)
+  "Applies FACE to the region moved over by BODY."
+  (declare (indent 1))
+  (let ((start (make-symbol "start")))
+    `(let ((,start (point)))
+       ,@body
+       (put-text-property ,start (point) 'face ,face))))
 
 (defun dart--read-file (filename)
   "Returns the contents of FILENAME."
@@ -1003,18 +1016,77 @@ reported to CALLBACK."
 
              (with-temp-buffer
                (when element-description
-                 (insert element-description
+                 (insert (dart--highlight-description element-description)
                          (dart--face-string (concat " (" element-kind ")") 'italic))
                  (when (or dartdoc parameter) (insert ?\n)))
                (when parameter
                  (insert
-                  parameter
+                  (dart--highlight-description parameter)
                   (dart--face-string " (parameter type)" 'italic))
                  (when dartdoc) (insert ?\n))
                (when dartdoc
                  (when (or element-description parameter) (insert ?\n))
                  (insert dartdoc))
                (message "%s" (buffer-string))))))))))
+
+(defconst dart--highlight-keyword-re
+  (regexp-opt
+   '("get" "set" "as" "abstract" "class" "extends" "implements" "enum" "typedef"
+     "const" "covariant" "deferred" "factory" "final" "import" "library" "new"
+     "operator" "part" "static" "async" "sync" "var")
+   'words)
+  "A regular expression that matches keywords.")
+
+(defconst dart--identifier-re
+  "[a-zA-Z_$][a-zA-Z0-9_$]*"
+  "A regular expression that matches keywords.")
+
+(defun dart--highlight-description (description)
+  "Returns a highlighted copy of DESCRIPTION."
+  (with-temp-buffer
+    (insert description)
+    (goto-char (point-min))
+
+    (while (not (eq (point) (point-max)))
+      (cond
+       ;; A keyword.
+       ((looking-at dart--highlight-keyword-re)
+        (dart--fontify-excursion 'font-lock-keyword-face
+          (goto-char (match-end 0))))
+
+       ;; An identifier could be a function name or a type name.
+       ((looking-at dart--identifier-re)
+        (goto-char (match-end 0))
+        (put-text-property
+         (match-beginning 0) (point) 'face
+         (if (dart--at-end-of-function-name-p) 'font-lock-function-name-face
+           'font-lock-type-face))
+
+        (case (char-after)
+          ;; Foo.bar()
+          (?.
+           (forward-char)
+           (dart--fontify-excursion 'font-lock-function-name-face
+             (dart--forward-identifier)))
+
+          ;; Foo bar
+          (?\s
+           (forward-char)
+           (dart--fontify-excursion 'font-lock-variable-name-face
+             (dart--forward-identifier)))))
+
+       ;; Anything else is punctuation that we ignore.
+       (t (forward-char))))
+
+    (buffer-string)))
+
+(defun dart--at-end-of-function-name-p ()
+  "Returns whether the point is at the end of a function name."
+  (case (char-after)
+    (?\( t)
+    (?<
+     (and (looking-at (concat "\\(" dart--identifier-re "\\|[<>]\\)*"))
+          (eq (char-after (match-end 0)) ?\()))))
 
 
 ;;; Formatting
