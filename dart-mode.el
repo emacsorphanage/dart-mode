@@ -109,9 +109,9 @@ and will move to the top level of a bracketed statement."
           (forward-char)
           (forward-sexp -1)
           (back-to-indentation))
-        (when (not (-dart-beginning-of-statement-p)) (forward-line -1)))))
+        (when (not (dart--beginning-of-statement-p)) (forward-line -1)))))
 
-(defun -dart-beginning-of-statement-p ()
+(defun dart--beginning-of-statement-p ()
   "Returns whether the point is at the beginning of a statement.
 
 Statements are assumed to begin on their own lines. This returns
