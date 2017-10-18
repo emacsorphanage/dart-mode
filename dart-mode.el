@@ -176,13 +176,13 @@ Returns the value rather than the full alist cell."
   "Assigns variables named FIELDS to the corresponding fields in JSON.
 FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
   (declare (indent 2))
-  (let ((json-variable (make-symbol "json")))
-    `(let ((,json-variable ,json))
-       (let ,(mapcar (lambda (name)
-                       (let ((elisp-name (if (symbolp name) name (car name)))
-                             (json-name (if (symbolp name) name (cadr name))))
-                         `(,elisp-name (dart--get ,json-variable ',json-name))))
-                     fields)
+  (let ((json-value (make-symbol "json")))
+    `(let ((,json-value ,json))
+       (let ,(--map (if (symbolp it)
+                        `(,it (dart--get ,json-value ',it))
+                      (-let [(variable key) it]
+                        `(,variable (dart--get ,json-value ',key))))
+                    fields)
          ,@body))))
 
 (defun dart--property-string (text prop value)
@@ -202,8 +202,8 @@ Converts TEXT to a string if it's not already."
 (defmacro dart--fontify-excursion (face &rest body)
   "Applies FACE to the region moved over by BODY."
   (declare (indent 1))
-  (let ((start (make-symbol "start")))
-    `(let ((,start (point)))
+  (-let [start (make-symbol "start")]
+    `(-let [,start (point)]
        ,@body
        (put-text-property ,start (point) 'face ,face))))
 
@@ -211,7 +211,7 @@ Converts TEXT to a string if it's not already."
   "Briefly highlights the text defined by OFFSET and LENGTH.
 OFFSET and LENGTH are expected to come from the analysis server,
 rather than Elisp."
-  (let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
+  (-let [overlay (make-overlay (+ 1 offset) (+ 1 offset length))]
     (overlay-put overlay 'face 'highlight)
     (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
 
@@ -226,7 +226,7 @@ rather than Elisp."
 Assigns the filename to NAME-VARIABLE. Doesn't change the current buffer.
 Returns the value of the last form in BODY."
   (declare (indent 1))
-  `(let ((,name-variable (make-temp-file "dart-mode.")))
+  `(-let [,name-variable (make-temp-file "dart-mode.")]
      (unwind-protect
          (progn ,@body)
        (delete-file ,name-variable))))
@@ -247,7 +247,7 @@ Returns (STDOUT STDERR EXIT-CODE)."
 (defun dart--try-process (executable &rest args)
   "Like `dart--run-process', but only returns stdout.
 Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
-  (let ((result (apply #'dart--run-process executable args)))
+  (-let [result (apply #'dart--run-process executable args)]
     (unless (string-empty-p (nth 1 result))
       (dart-log (format "Error running %S:\n%s" (cons executable args) (nth 1 result))))
     (if (eq (nth 2 result) 0) (nth 0 result))))
@@ -604,14 +604,13 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
   "Use fontify the region between BEG and END as Dart.
 
 This will overwrite fontification due to strings and comments."
-  (save-excursion
-    (save-match-data
-      (save-restriction
-        (let ((font-lock-dont-widen t))
-          (narrow-to-region (- beg 1) end)
-          ;; font-lock-fontify-region apparently isn't inclusive,
-          ;; so we have to move the beginning back one char
-          (font-lock-fontify-region (point-min) (point-max)))))))
+  (->
+   (-let [font-lock-dont-widen t]
+     (narrow-to-region (- beg 1) end)
+     ;; font-lock-fontify-region apparently isn't inclusive,
+     ;; so we have to move the beginning back one char
+     (font-lock-fontify-region (point-min) (point-max)))
+   save-excursion save-match-data save-restriction))
 
 (defun dart-limited-forward-sexp (limit &optional arg)
   "Move forward using `forward-sexp' or to limit,
@@ -628,12 +627,12 @@ whichever comes first."
 
 (defun dart-highlight-interpolation (limit)
   "Highlight interpolation (${foo})."
-  (let ((start (point)))
+  (-let [start (point)]
     (when (re-search-forward "\\(\\${\\)" limit t)
       (if (elt (parse-partial-sexp start (point)) 3) ; in a string
           (save-match-data
             (forward-char -1)
-            (let ((beg (point)))
+            (-let [beg (point)]
               (dart-limited-forward-sexp limit)
               (dart-fontify-region (+ 1 beg) (point)))
 
@@ -779,7 +778,7 @@ object which can be passed to `dart--analysis-server-unsubscribe'.")
 
 This starts Dart analysis server and adds either the pub root
 directory or the current file directory to the analysis roots."
-  (if (not dart--analysis-server) (dart-start-analysis-server))
+  (unless dart--analysis-server (dart-start-analysis-server))
   ;; TODO(hterkelsen): Add this file to the priority files.
   (dart-add-analysis-root-for-file)
   (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
@@ -806,10 +805,9 @@ directory or the current file directory to the analysis roots."
 
 (defun dart--analysis-server-create (process)
   "Create a Dart analysis server from PROCESS."
-  (let* ((buffer (generate-new-buffer (process-name process)))
-                 (instance (dart--make-analysis-server
-                            :process process
-                            :buffer buffer)))
+  (-let [instance (dart--make-analysis-server
+                   :process process
+                   :buffer (generate-new-buffer (process-name process)))]
     (buffer-disable-undo (dart--analysis-server-buffer instance))
     (set-process-filter
      process
@@ -861,10 +859,11 @@ See also `dart-add-analysis-overlay'."
 A file's root is the pub root if it is in a pub package, or the file's directory
 otherwise.  If no FILE is given, then this will default to the variable
 `buffer-file-name'."
-  (let* ((file-to-add (if file file buffer-file-name))
+  (let* ((file-to-add (or file buffer-file-name))
          (pub-root (locate-dominating-file file-to-add "pubspec.yaml"))
          (current-dir (file-name-directory file-to-add)))
-    (if pub-root (dart-add-to-analysis-roots (expand-file-name pub-root))
+    (if pub-root
+        (dart-add-to-analysis-roots (expand-file-name pub-root))
       (dart-add-to-analysis-roots (expand-file-name current-dir)))))
 
 (defun dart-add-to-analysis-roots (dir)
@@ -888,7 +887,7 @@ them when requested."
 
 PARAMS should be JSON-encodable.  If you provide a CALLBACK, it will be called
 with the JSON decoded response.  Otherwise, the output will just be checked."
-  (let ((req-without-id (dart--analysis-server-make-request method params)))
+  (-let [req-without-id (dart--analysis-server-make-request method params)]
     (dart--analysis-server-enqueue req-without-id callback)))
 
 (defun dart--analysis-server-make-request (method &optional params)
@@ -905,9 +904,9 @@ The constructed request will call METHOD with optional PARAMS."
 (defun dart--analysis-server-enqueue (req-without-id callback)
   "Send REQ-WITHOUT-ID to the analysis server, call CALLBACK with the result."
   (setq dart--analysis-server-next-id (1+ dart--analysis-server-next-id))
-  (let ((request
-         (json-encode (push (cons 'id (format "%s" dart--analysis-server-next-id))
-                            req-without-id))))
+  (-let [request
+         (json-encode (cons (cons 'id (format "%s" dart--analysis-server-next-id))
+                            req-without-id))]
 
     ;; Enqueue the request so that we can be sure all requests are processed in
     ;; order.
@@ -919,34 +918,36 @@ The constructed request will call METHOD with optional PARAMS."
     (process-send-string (dart--analysis-server-process dart--analysis-server)
                          (concat request "\n"))))
 
-(defun dart--analysis-server-process-filter (das string)
+(defun* dart--analysis-server-process-filter (das string)
   "Handle the event or method response from the dart analysis server.
 
 The server DAS has STRING added to the buffer associated with it.
 Method responses are paired according to their pending request and
 the callback for that request is given the json decoded response."
-  (let ((buf (dart--analysis-server-buffer das)))
+  (-let [buf (dart--analysis-server-buffer das)]
     ;; The buffer may have been killed if the server was restarted
-    (when (buffer-live-p buf)
-      ;; We use a buffer here because emacs might call the filter before the
-      ;; entire line has been written out. In this case we store the
-      ;; unterminated line in a buffer to be read when the rest of the line is
-      ;; output.
-      (with-current-buffer buf
-        (goto-char (point-max))
-        (insert string)
-        (let ((buf-lines (split-string (buffer-string) "\n")))
-          (delete-region (point-min) (point-max))
-          (insert (-last-item buf-lines))
-          (let ((json-lines
-                 (-map (lambda (s)
-                         (dart-info (concat "Received: " s))
-                         (-let [json-array-type 'list]
-                           (json-read-from-string s)))
-                       (-filter (lambda (s)
-                                  (not (or (null s) (string= "" s))))
-                                (-butlast buf-lines)))))
-            (-each json-lines 'dart--analysis-server-handle-msg)))))))
+    (unless (buffer-live-p buf)
+      (return-from dart--analysis-server-process-filter))
+
+    ;; We use a buffer here because emacs might call the filter before the
+    ;; entire line has been written out. In this case we store the
+    ;; unterminated line in a buffer to be read when the rest of the line is
+    ;; output.
+    (with-current-buffer buf
+      (goto-char (point-max))
+      (insert string)
+      (-let [buf-lines (s-lines (buffer-string))]
+        (delete-region (point-min) (point-max))
+        (insert (-last-item buf-lines))
+
+        (-let [messages
+               (--filter (and it (not (string-empty-p it)))
+                         (-butlast buf-lines))]
+          (dolist (message messages)
+            (dart-info (concat "Received: " message))
+            (dart--analysis-server-handle-msg
+             (-let [json-array-type 'list]
+               (json-read-from-string message)))))))))
 
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
@@ -969,7 +970,7 @@ the callback for that request is given the json decoded response."
                  (params (dart--get msg 'params))
                  (callbacks (dart--get dart--analysis-server-subscriptions event)))
       (dolist (callback callbacks)
-        (let ((subscription (cons event callback)))
+        (-let [subscription (cons event callback)]
           (funcall callback params subscription))))))
 
 (defun dart--analysis-server-subscribe (event callback)
@@ -989,8 +990,7 @@ subscription object."
 
 SUBSCRIPTION is an opaque object provided by
 `dart--analysis-server-subscribe'."
-  (let ((event (car subscription))
-        (callback (cdr subscription)))
+  (-let [(event . callback) subscription]
     (delq callback (assoc event dart--analysis-server-subscriptions))))
 
 ;;;; Flycheck Error Reporting
@@ -1001,7 +1001,7 @@ SUBSCRIPTION is an opaque object provided by
   (dart--analysis-server-send
    "analysis.getErrors"
    `((file . ,(buffer-file-name)))
-   (let ((buffer (current-buffer)))
+   (-let [buffer (current-buffer)]
      (lambda (response)
        (dart--report-errors response buffer callback)))))
 
@@ -1016,29 +1016,21 @@ SUBSCRIPTION is an opaque object provided by
 The errors contained in RESPONSE from Dart analysis server run on BUFFER are
 reported to CALLBACK."
   (dart-info (format "Reporting to flycheck: %s" response))
-  (-when-let* ((resp-result (dart--get response 'result))
-               (resp-errors (dart--get resp-result 'errors)))
-    (let ((fly-errors
-           (-map (lambda (err) (dart--to-flycheck-err err buffer)) resp-errors)))
+  (-when-let (errors (dart--get response 'result 'errors))
+    (-let [fly-errors (--map (dart--to-flycheck-err it buffer) errors)]
       (dart-info (format "Parsed errors: %s" fly-errors))
       (funcall callback 'finished fly-errors))))
 
 (defun dart--to-flycheck-err (err buffer)
   "Create a flycheck error from a dart ERR in BUFFER."
-  (-let* ((severity (dart--get err 'severity))
-          (message (dart--get err 'message))
-          (level (dart--severity-to-level severity))
-          (filename (dart--get err 'location 'file))
-          (line (dart--get err 'location 'startLine))
-          (column (dart--get err 'location 'startColumn)))
-    (flycheck-error-new
-     :buffer buffer
-     :checker 'dart-analysis-server
-     :filename filename
-     :line line
-     :column column
-     :message message
-     :level level)))
+  (flycheck-error-new
+   :buffer buffer
+   :checker 'dart-analysis-server
+   :filename (dart--get err 'location 'file)
+   :line (dart--get err 'location 'startLine)
+   :column (dart--get err 'location 'startColumn)
+   :message (dart--get err 'message)
+   :level (dart--severity-to-level (dart--get err 'severity))))
 
 (defun dart--severity-to-level (severity)
   "Convert SEVERITY to a flycheck level."
@@ -1298,7 +1290,7 @@ to add a header and otherwise prepare it for displaying results."
         (with-current-buffer buffer
           (dart--json-let event (id results (is-last isLast))
             (when (equal id search-id)
-              (let ((buffer-read-only nil))
+              (-let [buffer-read-only nil]
                 (save-excursion
                   (goto-char (point-max))
                   (dolist (result results)
@@ -1392,76 +1384,73 @@ stayas in place when the parameter is overwritten.")
 (defvar dart--last-expand-subscription nil
   "The last analysis server subscription from a call to `dart-expand'.")
 
-(defun dart-expand ()
+(defun* dart-expand ()
   "Expand previous word using Dart's autocompletion."
   (interactive "*")
-  (if (not dart-enable-analysis-server)
-      (call-interactively dart-expand-fallback t)
+  (unless dart-enable-analysis-server
+    (call-interactively dart-expand-fallback t)
+    (return-from dart-expand))
 
-    (if (and (memq last-command '(dart-expand dart-expand-parameters))
+  (when (and (memq last-command '(dart-expand dart-expand-parameters))
              dart--last-expand-results)
-        (progn
-          (incf dart--last-expand-index)
-          (when (>= dart--last-expand-index (length dart--last-expand-results))
-            (setq dart--last-expand-index 0))
-          (dart--use-expand-suggestion
-           dart--last-expand-beginning
-           dart--last-expand-end
-           (elt dart--last-expand-results dart--last-expand-index)))
+    (incf dart--last-expand-index)
+    (when (>= dart--last-expand-index (length dart--last-expand-results))
+      (setq dart--last-expand-index 0))
+    (dart--use-expand-suggestion
+     dart--last-expand-beginning
+     dart--last-expand-end
+     (elt dart--last-expand-results dart--last-expand-index))
+    (return-from dart-expand))
 
-      (when dart--last-expand-subscription
-        (dart--analysis-server-unsubscribe dart--last-expand-subscription))
-      (setq dart--last-expand-results nil)
-      (setq dart--last-expand-beginning nil)
-      (setq dart--last-expand-end nil)
-      (setq dart--last-expand-index nil)
-      (setq dart--last-expand-subscription nil)
+  (when dart--last-expand-subscription
+    (dart--analysis-server-unsubscribe dart--last-expand-subscription))
+  (setq dart--last-expand-results nil)
+  (setq dart--last-expand-beginning nil)
+  (setq dart--last-expand-end nil)
+  (setq dart--last-expand-index nil)
+  (setq dart--last-expand-subscription nil)
 
-      (-when-let (filename (buffer-file-name))
-        (dart--analysis-server-send
-         "completion.getSuggestions"
-         `(("file" . ,filename)
-           ("offset" . ,(- (point) 1)))
-         (let ((buffer (current-buffer))
-               (first t))
-           (lambda (response)
-             (-when-let (completion-id (dart--get response 'result 'id))
-               (dart--analysis-server-subscribe
-                "completion.results"
-                (setq dart--last-expand-subscription
-                      (lambda (event subscription)
-                        (dart--json-let event
-                            (id results
-                                (offset replacementOffset)
-                                (length replacementLength)
-                                (is-last isLast))
-                          (when is-last (dart--analysis-server-unsubscribe subscription))
+  (-when-let (filename (buffer-file-name))
+    (dart--analysis-server-send
+     "completion.getSuggestions"
+     `(("file" . ,filename)
+       ("offset" . ,(- (point) 1)))
+     (let ((buffer (current-buffer))
+           (first t))
+       (lambda (response)
+         (-when-let (completion-id (dart--get response 'result 'id))
+           (dart--analysis-server-subscribe
+            "completion.results"
+            (setq dart--last-expand-subscription
+                  (lambda (event subscription)
+                    (dart--json-let event
+                        (id results
+                            (offset replacementOffset)
+                            (length replacementLength)
+                            (is-last isLast))
+                      (when is-last (dart--analysis-server-unsubscribe subscription))
 
-                          (when (equal id completion-id)
-                            (with-current-buffer buffer
-                              (dart--handle-completion-event results offset length first))
-                            (setq first nil))))))))))))))
+                      (when (equal id completion-id)
+                        (with-current-buffer buffer
+                          (dart--handle-completion-event results offset length first))
+                        (setq first nil))))))))))))
 
 (defun dart--handle-completion-event (results offset length first)
   "Handles a completion results event.
 
 If FIRST is non-nil, this is the first completion event for this completion."
-  ;; Get rid of any suggestions that don't match
-  ;; existing characters. The analysis server provides
-  ;; extra suggestions to support search-as-you-type,
+  ;; Get rid of any suggestions that don't match existing characters. The
+  ;; analysis server provides extra suggestions to support search-as-you-type,
   ;; but we don't do that.
   (when (> length 0)
-    (let ((text (buffer-substring (+ offset 1) (+ offset length 1))))
+    (-let [text (buffer-substring (+ offset 1) (+ offset length 1))]
       (setq results
-            (remove-if-not
-             (lambda (suggestion)
-               (string-prefix-p text (dart--get suggestion 'completion) t))
-             results))))
+            (--remove (string-prefix-p text (dart--get it 'completion) t)
+                      results))))
 
   (when (> (length results) 0)
-    ;; Fill the first result so the first call does
-    ;; something. Just save later results for future
-    ;; calls.
+    ;; Fill the first result so the first call does something. Just save later
+    ;; results for future calls.
     (when first
       (setq dart--last-expand-index 0)
       (setq dart--last-expand-beginning (copy-marker (+ offset 1)))
@@ -1518,7 +1507,7 @@ If FIRST is non-nil, this is the first completion event for this completion."
         (when return-type (insert " → " return-type)))
       (buffer-string))))
 
-(defun dart-expand-parameters ()
+(defun* dart-expand-parameters ()
   "Adds parameters to the currently-selected `dart-expand' completion.
 
 This will select the first parameter, if one exists."
@@ -1535,25 +1524,26 @@ This will select the first parameter, if one exists."
          (parameter-types parameterTypes)
          (argument-string defaultArgumentListString)
          (argument-ranges defaultArgumentListTextRanges))
-      (when parameter-names
-        (if (not argument-string)
-            (progn
-              (insert ?\()
-              (save-excursion
-                (insert ?\))
-                (setq dart--last-expand-end (point-marker))))
+      (unless parameter-names (return-from dart-expand-parameters))
 
-          (save-excursion
-            (insert ?\( argument-string ?\))
-            (setq dart--last-expand-end (point-marker)))
+      (unless argument-string
+        (insert ?\()
+        (save-excursion
+          (insert ?\))
+          (setq dart--last-expand-end (point-marker)))
+        (return-from dart-expand-parameters))
 
-          (setq dart--last-expand-parameters-ranges
-                (loop for i below (length argument-ranges) by 2
-                      collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
-                                     (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
-                                (list (copy-marker beginning) (copy-marker end)))))
+      (save-excursion
+        (insert ?\( argument-string ?\))
+        (setq dart--last-expand-end (point-marker)))
 
-          (dart--expand-select-parameter)))))
+      (setq dart--last-expand-parameters-ranges
+            (loop for i below (length argument-ranges) by 2
+                  collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
+                                 (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
+                            (list (copy-marker beginning) (copy-marker end)))))
+
+      (dart--expand-select-parameter)))
 
    ((and (< dart--last-expand-beginning (point) dart--last-expand-end)
          dart--last-expand-parameters-index)
@@ -1569,9 +1559,9 @@ This will select the first parameter, if one exists."
 
 (defun dart--expand-select-parameter ()
   "Selects the parameter indicated by expansion variables."
-  (let ((range (elt dart--last-expand-parameters-ranges
-                    dart--last-expand-parameters-index)))
-    (dart--delsel-range (car range) (- (cadr range) 1)))
+  (-let [(beginning end) (elt dart--last-expand-parameters-ranges
+                              dart--last-expand-parameters-index)]
+    (dart--delsel-range beginning (- end 1)))
 
   (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
       ((parameter-names parameterNames)
