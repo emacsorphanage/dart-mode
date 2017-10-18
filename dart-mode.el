@@ -1541,20 +1541,24 @@ This will select the first parameter, if one exists."
          (argument-string defaultArgumentListString)
          (argument-ranges defaultArgumentListTextRanges))
       (when parameter-names
-        (setq argument-string (or argument-string ""))
-        (setq argument-ranges (or argument-ranges [0 0]))
+        (if (not argument-string)
+            (progn
+              (insert ?\()
+              (save-excursion
+                (insert ?\))
+                (setq dart--last-expand-end (point-marker))))
 
-        (save-excursion
-          (insert ?\( argument-string ?\))
-          (setq dart--last-expand-end (point-marker)))
+          (save-excursion
+            (insert ?\( argument-string ?\))
+            (setq dart--last-expand-end (point-marker)))
 
-        (setq dart--last-expand-parameters-ranges
-              (loop for i below (length argument-ranges) by 2
-                    collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
-                                   (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
-                              (list (copy-marker beginning) (copy-marker end)))))
+          (setq dart--last-expand-parameters-ranges
+                (loop for i below (length argument-ranges) by 2
+                      collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
+                                     (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
+                                (list (copy-marker beginning) (copy-marker end)))))
 
-        (dart--expand-select-parameter))))
+          (dart--expand-select-parameter)))))
 
    ((and (< dart--last-expand-beginning (point) dart--last-expand-end)
          dart--last-expand-parameters-index)
