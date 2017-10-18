@@ -1,8 +1,8 @@
 ;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
 ;; Author: Natalie Weizenbaum
-;; URL: http://code.google.com/p/dart-mode
-;; Version: 0.15
+;; URL: https://github.com/nex3/dart-mode
+;; Version: 1.0.0
 ;; Package-Requires: ((cl-lib "0.5") (dash "2.10.0") (flycheck "0.23"))
 ;; Keywords: language
 
