@@ -1049,10 +1049,11 @@ minibuffer."
   (interactive "P")
   (-when-let (filename (buffer-file-name))
     (lexical-let ((show-in-buffer show-in-buffer)
-                  (buffer (current-buffer)))
+                  (buffer (current-buffer))
+                  (pos (point)))
       (dart--analysis-server-send
        "analysis.getHover"
-       `(("file" . ,filename) ("offset" . ,(point)))
+       `(("file" . ,filename) ("offset" . ,pos))
        (lambda (response)
          (-when-let* ((result (cdr (assoc 'result response)))
                       (hovers (cdr (assoc 'hovers result)))
@@ -1093,7 +1094,14 @@ minibuffer."
                      (with-current-buffer-window
                       "*Dart Analysis*" nil nil
                       (insert text)
-                      (dart-popup-mode))
+                      (dart-popup-mode)
+
+                      (setq dart--do-it-again-callback
+                            (lambda ()
+                              (save-excursion
+                                (with-current-buffer buffer
+                                  (goto-char pos)
+                                  (dart-show-hover t))))))
                    (message "%s" text)))))))))))
 
 (defconst dart--highlight-keyword-re
@@ -1208,19 +1216,27 @@ minibuffer."
      `(("file" . ,filename)
        ("offset" . ,pos)
        ("includePotential" . ,(or include-potential json-false)))
-     (lambda (response)
-       (-when-let (result (cdr (assoc 'result response)))
-         (lexical-let* ((element (cdr (assoc 'element result)))
-                        (name (cdr (assoc 'name element)))
-                        (location (cdr (assoc 'location element))))
-           (dart--display-search-results
-            (cdr (assoc 'id result))
-            (lambda () 
-              (insert "References to ")
-              (insert-button
-               name
-               'action (lambda (_) (dart--goto-location location)))
-              (insert ":\n\n")))))))))
+     (lexical-let ((buffer (current-buffer))
+                   (pos pos)
+                   (include-potential include-potential))
+       (lambda (response)
+         (-when-let (result (cdr (assoc 'result response)))
+           (lexical-let* ((element (cdr (assoc 'element result)))
+                          (name (cdr (assoc 'name element)))
+                          (location (cdr (assoc 'location element))))
+             (dart--display-search-results
+              (cdr (assoc 'id result))
+              (lambda () 
+                (setq dart--do-it-again-callback
+                      (lambda ()
+                        (with-current-buffer buffer
+                          (dart-find-refs pos include-potential))))
+
+                (insert "References to ")
+                (insert-button
+                 name
+                 'action (lambda (_) (dart--goto-location location)))
+                (insert ":\n\n"))))))))))
 
 (defun dart-find-member-decls (name)
   "Find member declarations named NAME."
@@ -1248,12 +1264,19 @@ ARGUMENT. Displays a header beginning with HEADER in the results."
   (dart--analysis-server-send
    method
    (list (cons argument name))
-   (lexical-let ((name name) (header header))
+   (lexical-let ((method method)
+                 (argument argument)
+                 (name name)
+                 (header header))
      (lambda (response)
        (-when-let (result (cdr (assoc 'result response)))
          (dart--display-search-results
           (cdr (assoc 'id result))
-          (lambda () (insert header name ":\n\n"))))))))  
+          (lambda ()
+            (setq dart--do-it-again-callback
+                  (lambda ()
+                    (dart--find-by-name method argument name header)))
+            (insert header name ":\n\n"))))))))
 
 (defun dart--display-search-results (search-id callback)
   "Displays search results with the given SEARCH-ID.
@@ -1337,9 +1360,17 @@ to add a header and otherwise prepare it for displaying results."
 
 (put 'dart-popup-mode 'mode-class 'special)
 
+(defvar dart--do-it-again-callback nil
+  "A callback to call when `dart-do-it-again' is invoked.
+
+Only set in `dart-popup-mode'.")
+(make-variable-buffer-local 'dart--do-it-again-callback)
+
 (defvar dart-popup-mode-map (make-sparse-keymap)
   "Keymap used in Dart popup buffers.")
 (set-keymap-parent dart-popup-mode-map help-mode-map)
+
+(define-key dart-popup-mode-map (kbd "g") 'dart-do-it-again)
 
 ;; Unbind help-specific keys.
 (define-key dart-popup-mode-map (kbd "RET") nil)
@@ -1351,6 +1382,13 @@ to add a header and otherwise prepare it for displaying results."
 (define-key dart-popup-mode-map (kbd "C-c C-b") nil)
 (define-key dart-popup-mode-map (kbd "C-c C-c") nil)
 (define-key dart-popup-mode-map (kbd "C-c C-f") nil)
+
+(defun dart-do-it-again ()
+  "Re-runs the logic that generated the current buffer."
+  (interactive)
+  (when dart--do-it-again-callback
+    (apply dart--do-it-again-callback nil)))
+
 
 ;;; Formatting
 
