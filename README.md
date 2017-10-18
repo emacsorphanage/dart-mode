@@ -90,3 +90,8 @@ You can press `M-/` multiple times in a row to cycle through possible
 completions.
 
 [dabbrev]: https://www.gnu.org/software/emacs/manual/html_node/emacs/Dynamic-Abbrevs.html
+
+If the analysis server isn't enabled for the current buffer, this will fall back
+to whatever command is assigned to `M-/` outside of Dart mode (`dabbrev-expand`
+in vanilla Emacs). This will usually pick up any custom key bindings, but if it
+doesn't you can manually choose a fallback by setting the `

@@ -1353,6 +1353,15 @@ to add a header and otherwise prepare it for displaying results."
 
 ;;;; Auto-complete
 
+(defcustom dart-expand-fallback (key-binding (kbd "M-/"))
+  "The fallback command to use for `dart-expand'.
+
+This is used when the analysis server isn't available. It
+defaults to the command globally bound to M-/."
+  :group 'dart-mode
+  :type 'function
+  :package-version '(dart-mode . "1.0.0"))
+
 (defvar dart--last-expand-results nil
   "The results of the last call to `dart-expand'.")
 
@@ -1371,49 +1380,52 @@ to add a header and otherwise prepare it for displaying results."
 (defun dart-expand ()
   "Expand previous word using Dart's autocompletion."
   (interactive "*")
-  (if (and (eq last-command 'dart-expand) dart--last-expand-results)
-      (progn
-        (incf dart--last-expand-index)
-        (when (>= dart--last-expand-index (length dart--last-expand-results))
-          (setq dart--last-expand-index 0))
-        (dart--use-expand-suggestion
-         dart--last-expand-offset
-         dart--last-expand-length
-         (elt dart--last-expand-results dart--last-expand-index)))
+  (if (not dart-enable-analysis-server)
+      (call-interactively dart-expand-fallback t)
 
-    (when dart--last-expand-subscription
-      (dart--analysis-server-unsubscribe dart--last-expand-subscription))
-    (setq dart--last-expand-results nil)
-    (setq dart--last-expand-offset nil)
-    (setq dart--last-expand-length nil)
-    (setq dart--last-expand-index nil)
-    (setq dart--last-expand-subscription nil)
+    (if (and (eq last-command 'dart-expand) dart--last-expand-results)
+        (progn
+          (incf dart--last-expand-index)
+          (when (>= dart--last-expand-index (length dart--last-expand-results))
+            (setq dart--last-expand-index 0))
+          (dart--use-expand-suggestion
+           dart--last-expand-offset
+           dart--last-expand-length
+           (elt dart--last-expand-results dart--last-expand-index)))
 
-    (-when-let (filename (buffer-file-name))
-      (dart--analysis-server-send
-       "completion.getSuggestions"
-       `(("file" . ,filename)
-         ("offset" . ,(- (point) 1)))
-       (lexical-let ((buffer (current-buffer)))
-         (lambda (response)
-           (-when-let (result (cdr (assoc 'result response)))
-             (lexical-let ((completion-id (cdr (assoc 'id result)))
-                           (first t))
-               (dart--analysis-server-subscribe
-                "completion.results"
-                (setq dart--last-expand-subscription
-                      (lambda (event subscription)
-                        (dart--json-let event
-                            (id results
-                                (offset replacementOffset)
-                                (length replacementLength)
-                                (is-last isLast))
-                          (when is-last (dart--analysis-server-unsubscribe subscription))
+      (when dart--last-expand-subscription
+        (dart--analysis-server-unsubscribe dart--last-expand-subscription))
+      (setq dart--last-expand-results nil)
+      (setq dart--last-expand-offset nil)
+      (setq dart--last-expand-length nil)
+      (setq dart--last-expand-index nil)
+      (setq dart--last-expand-subscription nil)
 
-                          (when (equal id completion-id)
-                            (with-current-buffer buffer
-                              (dart--handle-completion-event results offset length first))
-                            (setq first nil))))))))))))))
+      (-when-let (filename (buffer-file-name))
+        (dart--analysis-server-send
+         "completion.getSuggestions"
+         `(("file" . ,filename)
+           ("offset" . ,(- (point) 1)))
+         (lexical-let ((buffer (current-buffer)))
+           (lambda (response)
+             (-when-let (result (cdr (assoc 'result response)))
+               (lexical-let ((completion-id (cdr (assoc 'id result)))
+                             (first t))
+                 (dart--analysis-server-subscribe
+                  "completion.results"
+                  (setq dart--last-expand-subscription
+                        (lambda (event subscription)
+                          (dart--json-let event
+                              (id results
+                                  (offset replacementOffset)
+                                  (length replacementLength)
+                                  (is-last isLast))
+                            (when is-last (dart--analysis-server-unsubscribe subscription))
+
+                            (when (equal id completion-id)
+                              (with-current-buffer buffer
+                                (dart--handle-completion-event results offset length first))
+                              (setq first nil)))))))))))))))
 
 (defun dart--handle-completion-event (results offset length first)
   "Handles a completion results event.
