@@ -423,6 +423,7 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
 (define-key dart-mode-map (kbd "C-c C-r") 'dart-find-member-refs)
 (define-key dart-mode-map (kbd "C-c C-t") 'dart-find-top-level-decls)
 (define-key dart-mode-map (kbd "M-/") 'dart-expand)
+(define-key dart-mode-map (kbd "M-?") 'dart-expand-parameters)
 
 ;;; CC indentation support
 
@@ -1383,7 +1384,8 @@ defaults to the command globally bound to M-/."
   (if (not dart-enable-analysis-server)
       (call-interactively dart-expand-fallback t)
 
-    (if (and (eq last-command 'dart-expand) dart--last-expand-results)
+    (if (and (memq last-command '(dart-expand dart-expand-parameters))
+             dart--last-expand-results)
         (progn
           (incf dart--last-expand-index)
           (when (>= dart--last-expand-index (length dart--last-expand-results))
@@ -1502,6 +1504,52 @@ If FIRST is non-nil, this is the first completion event for this completion."
         (when parameters (insert parameters))
         (when return-type (insert " → " return-type)))
       (buffer-string))))
+
+(defun dart-expand-parameters ()
+  "Adds parameters to the currently-selected `dart-expand' completion.
+
+This will select the first parameter, if one exists."
+  (interactive "*")
+  (when (and (eq last-command 'dart-expand)
+             dart--last-expand-results)
+    (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
+        ((parameter-names parameterNames)
+         (argument-string defaultArgumentListString)
+         (argument-ranges defaultArgumentListTextRanges))
+      (when parameter-names
+        (setq argument-string (or argument-string ""))
+        (setq argument-ranges (or argument-ranges [0 0]))
+
+        (save-excursion
+          (insert ?\( argument-string ?\)))
+        (incf dart--last-expand-length (+ (length argument-string) 2))
+
+        (setq transient-mark-mode nil)
+        (forward-char (+ 1 (elt argument-ranges 0)))
+        (push-mark nil t)
+        (forward-char (elt argument-ranges 1))
+
+        ;; Run this in a timer because `activate-mark' doesn't seem to work
+        ;; directly, and because we don't want to disable `delete-selection-mode'
+        ;; after this command.
+        (run-at-time
+         "0 sec" nil
+         (lambda ()
+           (activate-mark)
+
+           ;; Overwrite the current selection, but don't globally enable
+           ;; delete-selection-mode.
+           (unless delete-selection-mode
+             (delete-selection-mode 1)
+             (add-hook 'post-command-hook 'dart--disable-highlight t t))))))))
+
+(defun dart--disable-highlight ()
+  "Disables `delete-selection-mode' and deactivates the mark.
+
+Also removes this function from `post-command-hook'."
+  (deactivate-mark)
+  (delete-selection-mode 0)
+  (remove-hook 'post-command-hook 'dart--disable-delete-selection-mode t))
 
 
 ;;; Popup Mode
