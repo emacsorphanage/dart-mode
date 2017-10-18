@@ -3,6 +3,7 @@
 * [Installation](#installation)
 * [Dart Analyzer](#dart-analyzer)
   * [Error Checking](#error-checking)
+  * [Seeing Information](#seeing-information)
 
 ## Installation
 
@@ -33,3 +34,10 @@ your Dart code. To enable this, just add `(add-hook 'dart-mode-hook
 Flycheck—if you have `dart-mode`, you automatically have it as well!
 
 [Flycheck]: http://www.flycheck.org/en/latest/
+
+### Seeing Information
+
+To see all the information the analyzer knows about a particular identifier,
+move your cursor onto it and press `C-c ?`. This will show the identifier's type
+and documentation in the echo area at the bottom of the editor, as well as some
+extra information if it's available.

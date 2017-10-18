@@ -161,6 +161,29 @@ function."
          (delete-region (progn (forward-visible-line 0) (point))
                         (progn (forward-visible-line arg) (point))))))
 
+(defmacro dart--json-let (json fields &rest body)
+  "Assigns variables named FIELDS to the corresponding fields in JSON.
+FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
+  (declare (indent 2))
+  (let ((json-variable (make-symbol "json")))
+    `(let ((,json-variable ,json))
+       (let ,(mapcar (lambda (name)
+                       (let ((elisp-name (if (symbolp name) name (car name)))
+                             (json-name (if (symbolp name) name (cadr name))))
+                         `(,elisp-name (cdr (assoc ',json-name ,json-variable)))))
+                     fields)
+         ,@body))))
+
+(defun dart--property-string (text prop value)
+  "Returns a copy of TEXT with PROP set to VALUE."
+  (let ((copy (substring text 0)))
+    (put-text-property 0 (length copy) prop value copy)
+    copy))
+
+(defun dart--face-string (text face)
+  "Returns a copy of TEXT with its font face set to FACE."
+  (dart--property-string text 'face face))
+
 (defun dart--read-file (filename)
   "Returns the contents of FILENAME."
   (with-temp-buffer
@@ -368,6 +391,7 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
 
 (defvar dart-mode-map (c-make-inherited-keymap)
   "Keymap used in dart-mode buffers.")
+(define-key dart-mode-map (kbd "C-c ?") 'dart-show-hover)
 
 ;;; CC indentation support
 
@@ -893,6 +917,8 @@ the callback for that request is given the json decoded response."
           (dart--analysis-server-on-error-callback msg)
         (dart-info (format "No callback was associated with id %s" raw-id))))))
 
+;;;; Flycheck Error Reporting
+
 (defun dart--flycheck-start (_ callback)
   "Run the CHECKER and report the errors to the CALLBACK."
   (dart-info (format "Checking syntax for %s" (current-buffer)))
@@ -945,6 +971,50 @@ reported to CALLBACK."
    ((string= severity "INFO") 'info)
    ((string= severity "WARNING") 'warning)
    ((string= severity "ERROR") 'error)))
+
+;;;; Hover
+
+(defun dart-show-hover ()
+  "Displays hover information for the current point."
+  (interactive)
+  (-when-let (filename (buffer-file-name))
+    (lexical-let ((buffer (current-buffer)))
+      (dart--analysis-server-send
+       "analysis.getHover"
+       `(("file" . ,filename) ("offset" . ,(point)))
+       (lambda (response)
+         (-when-let* ((result (cdr (assoc 'result response)))
+                      (hovers (cdr (assoc 'hovers result)))
+                      (hover (if (eq (length hovers) 0) nil (elt hovers 0))))
+           (dart--json-let hover
+               (offset
+                length
+                dartdoc
+                (element-description elementDescription)
+                (element-kind elementKind)
+                (is-deprecated isDeprecated)
+                parameter)
+
+             ;; Briefly highlight the region that's being shown.
+             (with-current-buffer buffer
+               (lexical-let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
+                 (overlay-put overlay 'face 'highlight)
+                 (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
+
+             (with-temp-buffer
+               (when element-description
+                 (insert element-description
+                         (dart--face-string (concat " (" element-kind ")") 'italic))
+                 (when (or dartdoc parameter) (insert ?\n)))
+               (when parameter
+                 (insert
+                  parameter
+                  (dart--face-string " (parameter type)" 'italic))
+                 (when dartdoc) (insert ?\n))
+               (when dartdoc
+                 (when (or element-description parameter) (insert ?\n))
+                 (insert dartdoc))
+               (message "%s" (buffer-string))))))))))
 
 
 ;;; Formatting
