@@ -180,13 +180,17 @@ FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
          ,@body))))
 
 (defun dart--property-string (text prop value)
-  "Returns a copy of TEXT with PROP set to VALUE."
-  (let ((copy (substring text 0)))
+  "Returns a copy of TEXT with PROP set to VALUE.
+
+Converts TEXT to a string if it's not already."
+  (let ((copy (substring (format "%s" text) 0)))
     (put-text-property 0 (length copy) prop value copy)
     copy))
 
 (defun dart--face-string (text face)
-  "Returns a copy of TEXT with its font face set to FACE."
+  "Returns a copy of TEXT with its font face set to FACE.
+
+Converts TEXT to a string if it's not already."
   (dart--property-string text 'face face))
 
 (defmacro dart--fontify-excursion (face &rest body)
@@ -414,6 +418,7 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
   "Keymap used in dart-mode buffers.")
 (define-key dart-mode-map (kbd "C-c ?") 'dart-show-hover)
 (define-key dart-mode-map (kbd "C-c C-g") 'dart-goto)
+(define-key dart-mode-map (kbd "C-c C-f") 'dart-find-refs)
 
 ;;; CC indentation support
 
@@ -734,6 +739,12 @@ server sends a response to a request, it tags the response with the ID of the
 request.  We look up the callback for the request in this alist and run it with
 the JSON decoded server response.")
 
+(defvar dart--analysis-server-subscriptions nil
+  "An alist of event names to lists of callbacks to be called for those events.
+
+These callbacks take the event object and an opaque subcription
+object which can be passed to `dart--analysis-server-unsubscribe'.")
+
 (defun dart-info (msg)
   "Logs MSG to the dart log if `dart-debug' is non-nil."
   (when dart-debug (dart-log msg)))
@@ -927,17 +938,48 @@ the callback for that request is given the json decoded response."
 
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
-  (-when-let* ((id-assoc (assoc 'id msg))
-               (raw-id (cdr id-assoc))
-               (id (string-to-number raw-id)))
-    (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
-        (progn
-          (setq dart--analysis-server-callbacks
-                (assq-delete-all id dart--analysis-server-callbacks))
-          (funcall (cdr resp-closure) msg))
-      (-if-let (err (assoc 'error msg))
-          (dart--analysis-server-on-error-callback msg)
-        (dart-info (format "No callback was associated with id %s" raw-id))))))
+  (-if-let* ((raw-id (cdr (assoc 'id msg)))
+             (id (string-to-number raw-id)))
+      ;; This is a response to a request, so we should invoke a callback in
+      ;; dart--analysis-server-callbacks.
+      (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
+          (progn
+            (setq dart--analysis-server-callbacks
+                  (assq-delete-all id dart--analysis-server-callbacks))
+            (funcall (cdr resp-closure) msg))mode
+        (-if-let (err (assoc 'error msg))
+            (dart--analysis-server-on-error-callback msg)
+          (dart-info (format "No callback was associated with id %s" raw-id))))
+
+    ;; This is a notification, so we should invoke callbacks in
+    ;; dart--analysis-server-subscriptions.
+    (-when-let* ((event (cdr (assoc 'event msg)))
+                 (params (cdr (assoc 'params msg)))
+                 (callbacks (cdr (assoc event dart--analysis-server-subscriptions))))
+      (dolist (callback callbacks)
+        (let ((subscription (cons event callback)))
+          (apply callback params subscription nil))))))
+
+(defun dart--analysis-server-subscribe (event callback)
+  "Registers CALLBACK to be called for each EVENT of the given type.
+
+CALLBACK should take two parameters: the event object and an
+opaque subscription object that can be passed to
+`dart--analysis-server-unsubscribe'. Returns the same opaque
+subscription object."
+  (-if-let (cell (assoc event dart--analysis-server-subscriptions))
+      (nconc cell (list callback))
+    (push (cons event (list callback)) dart--analysis-server-subscriptions))
+  (cons event callback))
+
+(defun dart--analysis-server-unsubscribe (subscription)
+  "Unregisters the analysis server SUBSCRIPTION.
+
+SUBSCRIPTION is an opaque object provided by
+`dart--analysis-server-subscribe'."
+  (let ((event (car subscription))
+        (callback (cdr subscription)))
+    (delq callback (assoc event dart--analysis-server-subscriptions))))
 
 ;;;; Flycheck Error Reporting
 
@@ -1154,6 +1196,86 @@ minibuffer."
                (find-file file)
                (goto-char (+ 1 offset))
                (dart--flash-highlight offset length)))))))))
+
+;;;; Search
+
+(defun dart-find-refs (pos &optional include-potential)
+  (interactive "dP")
+  (-when-let (filename (buffer-file-name))
+    (dart--analysis-server-send
+     "search.findElementReferences"
+     `(("file" . ,filename)
+       ("offset" . ,pos)
+       ("includePotential" . ,(or include-potential json-false)))
+     (lambda (response)
+       (-when-let (result (cdr (assoc 'result response)))
+         (lexical-let* (buffer
+                        (search-id (cdr (assoc 'id result))))
+           (with-current-buffer-window
+            "*Dart Search*" nil nil
+            (setq buffer (current-buffer))
+
+            (lexical-let* ((element (cdr (assoc 'element result)))
+                           (name (cdr (assoc 'name element)))
+                           (location (cdr (assoc 'location element))))
+              (insert "References to ")
+              (insert-button
+               name
+               'action (lambda (_) (dart--goto-location location)))
+              (insert ":\n\n"))
+
+            (dart--analysis-server-subscribe
+             "search.results"
+             (lambda (event subscription)
+               (with-current-buffer buffer
+                 (dart--json-let event (id results (is-last isLast))
+                   (when (equal id search-id)
+                     (when (eq is-last t)
+                       (dart--analysis-server-unsubscribe subscription))
+
+                     (save-excursion
+                       (goto-char (point-max))
+                       (loop
+                        for result across results
+                        do (lexical-let* ((location (cdr (assoc 'location result)))
+                                          (path (cdr (assoc 'path result))))
+                             (let ((start (point))
+                                   (buffer-read-only nil))
+                               (dart--fontify-excursion '(compilation-info underline)
+                                 (when (cl-some
+                                        (lambda (element)
+                                          (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
+                                        path)
+                                   (insert "new "))
+
+                                 (insert
+                                  (loop for element across path
+                                        unless (member (cdr (assoc 'kind element))
+                                                       '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
+                                        unless (string-empty-p (cdr (assoc 'name element)))
+                                        collect (cdr (assoc 'name element)) into names
+                                        finally return (mapconcat 'identity (reverse names) ".")))
+
+                                 (make-text-button
+                                  start (point)
+                                  'action (lambda (_) (dart--goto-location location))))
+
+                               (let ((file (cdr (assoc 'file location)))
+                                     (line (cdr (assoc 'startLine location)))
+                                     (column (cdr (assoc 'startColumn location))))
+                                 (insert " " file ":"
+                                         (dart--face-string line 'compilation-line-number) ":"
+                                         (dart--face-string column 'compilation-column-number) ?\n))))))))))))
+
+               (select-window (get-buffer-window buffer))
+               (forward-line 2)))))))
+
+(defun dart--goto-location (location)
+  "Sends the user to the analysis server LOCATION."
+  (dart--json-let location (file offset length)
+    (find-file file)
+    (goto-char (+ 1 offset))
+    (dart--flash-highlight offset length)))
 
 ;;; Formatting
 

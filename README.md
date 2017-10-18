@@ -5,6 +5,7 @@
   * [Error Checking](#error-checking)
   * [Seeing Information](#seeing-information)
   * [Navigation](#navigation)
+  * [Search](#search)
 
 ## Installation
 
@@ -53,3 +54,10 @@ When your cursor is on an identifier, you can press `C-c C-g` to go to the exact
 location that identifier was originally defined. This can even take you to the
 Dart SDK's sources, or to packages that your library imports. Be careful when
 you're there, though: any edits may corrupt your package cache!
+
+### Search
+
+You can search for all references to the identifier under your cursor by
+pressing `C-c C-f`. This will show you everywhere a method, getter, or setter is
+called; everywhere a class is used as a type, constructed, or has static methods
+called on it; everywhere a named argument is passed; and so on.
