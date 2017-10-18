@@ -197,6 +197,14 @@ FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
        ,@body
        (put-text-property ,start (point) 'face ,face))))
 
+(defun dart--flash-highlight (offset length)
+  "Briefly highlights the text defined by OFFSET and LENGTH.
+OFFSET and LENGTH are expected to come from the analysis server,
+rather than Elisp."
+  (lexical-let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
+    (overlay-put overlay 'face 'highlight)
+    (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
+
 (defun dart--read-file (filename)
   "Returns the contents of FILENAME."
   (with-temp-buffer
@@ -405,6 +413,7 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
 (defvar dart-mode-map (c-make-inherited-keymap)
   "Keymap used in dart-mode buffers.")
 (define-key dart-mode-map (kbd "C-c ?") 'dart-show-hover)
+(define-key dart-mode-map (kbd "C-c C-g") 'dart-goto)
 
 ;;; CC indentation support
 
@@ -1015,9 +1024,7 @@ minibuffer."
 
              ;; Briefly highlight the region that's being shown.
              (with-current-buffer buffer
-               (lexical-let ((overlay (make-overlay (+ 1 offset) (+ 1 offset length))))
-                 (overlay-put overlay 'face 'highlight)
-                 (run-at-time "1 sec" nil (lambda () (delete-overlay overlay)))))
+               (dart--flash-highlight offset length))
 
              (with-temp-buffer
                (when is-deprecated
@@ -1122,6 +1129,31 @@ minibuffer."
                          'face 'font-lock-reference-face))
 
     (buffer-string)))
+
+;;;; Navigation
+
+(defun dart-goto ()
+  (interactive)
+  (-when-let (filename (buffer-file-name))
+    (dart--analysis-server-send
+     "analysis.getNavigation"
+     `(("file" . ,filename) ("offset" . ,(point)) ("length" . 0))
+     (lambda (response)
+       (-when-let (result (cdr (assoc 'result response)))
+         (dart--json-let result (files targets regions)
+           (unless (eq (length regions) 0)
+             (let* ((region (elt regions 0))
+                    (target-index (elt (cdr (assoc 'targets region)) 0))
+                    (target (elt targets target-index))
+
+                    (file-index (cdr (assoc 'fileIndex target)))
+                    (offset (cdr (assoc 'offset target)))
+                    (length (cdr (assoc 'length target)))
+
+                    (file (elt files file-index)))
+               (find-file file)
+               (goto-char (+ 1 offset))
+               (dart--flash-highlight offset length)))))))))
 
 ;;; Formatting
 

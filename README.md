@@ -4,6 +4,7 @@
 * [Dart Analyzer](#dart-analyzer)
   * [Error Checking](#error-checking)
   * [Seeing Information](#seeing-information)
+  * [Navigation](#navigation)
 
 ## Installation
 
@@ -45,3 +46,10 @@ extra information if it's available.
 Sometimes there's just too much documentation to fit down there, or you want to
 keep the documentation open as you're working. In that case, you can run `C-u
 C-c ?` instead to open the information in a new window to read at your leisure.
+
+### Navigation
+
+When your cursor is on an identifier, you can press `C-c C-g` to go to the exact
+location that identifier was originally defined. This can even take you to the
+Dart SDK's sources, or to packages that your library imports. Be careful when
+you're there, though: any edits may corrupt your package cache!
