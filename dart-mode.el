@@ -1537,6 +1537,7 @@ This will select the first parameter, if one exists."
     (setq dart--last-expand-parameters-index 0)    
     (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
         ((parameter-names parameterNames)
+         (parameter-types parameterTypes)
          (argument-string defaultArgumentListString)
          (argument-ranges defaultArgumentListTextRanges))
       (when parameter-names
@@ -1553,8 +1554,7 @@ This will select the first parameter, if one exists."
                                    (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
                               (list (copy-marker beginning) (copy-marker end)))))
 
-        (let ((range (car dart--last-expand-parameters-ranges)))
-          (dart--delsel-range (car range) (- (cadr range) 1))))))
+        (dart--expand-select-parameter))))
 
    ((and (< dart--last-expand-beginning (point) dart--last-expand-end)
          dart--last-expand-parameters-index)
@@ -1566,9 +1566,20 @@ This will select the first parameter, if one exists."
     (when (>= dart--last-expand-parameters-index (length dart--last-expand-parameters-ranges))
       (setq dart--last-expand-parameters-index 0))
 
-    (let ((range (elt dart--last-expand-parameters-ranges
-                      dart--last-expand-parameters-index)))
-      (dart--delsel-range (car range) (- (cadr range) 1))))))
+    (dart--expand-select-parameter))))
+
+(defun dart--expand-select-parameter ()
+  "Selects the parameter indicated by expansion variables."
+  (let ((range (elt dart--last-expand-parameters-ranges
+                    dart--last-expand-parameters-index)))
+    (dart--delsel-range (car range) (- (cadr range) 1)))
+
+  (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
+      ((parameter-names parameterNames)
+       (parameter-types parameterTypes))        
+    (message "%s" (dart--highlight-description 
+                   (concat (elt parameter-types dart--last-expand-parameters-index) " "
+                           (elt parameter-names dart--last-expand-parameters-index))))))  
 
 (defun dart--delsel-range (beginning end)
   "Highlights the range between BEGINNING and END and enables `delete-selection-mode' temporarily."
