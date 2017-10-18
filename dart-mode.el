@@ -166,6 +166,11 @@ function."
   (when (looking-at dart--identifier-re)
     (goto-char (match-end 0))))
 
+(defun dart--get (alist &rest keys)
+  "Recursively calls `cdr' and `assoc' on ALIST with KEYS.
+Returns the value rather than the full alist cell."
+  (--reduce-from (cdr (assoc it acc)) alist keys))
+
 (defmacro dart--json-let (json fields &rest body)
   "Assigns variables named FIELDS to the corresponding fields in JSON.
 FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
@@ -175,7 +180,7 @@ FIELDS may be either identifiers or (ELISP-IDENTIFIER JSON-IDENTIFIER) pairs."
        (let ,(mapcar (lambda (name)
                        (let ((elisp-name (if (symbolp name) name (car name)))
                              (json-name (if (symbolp name) name (cadr name))))
-                         `(,elisp-name (cdr (assoc ',json-name ,json-variable)))))
+                         `(,elisp-name (dart--get ,json-variable ',json-name))))
                      fields)
          ,@body))))
 
@@ -943,24 +948,24 @@ the callback for that request is given the json decoded response."
 
 (defun dart--analysis-server-handle-msg (msg)
   "Handle the parsed MSG from the analysis server."
-  (-if-let* ((raw-id (cdr (assoc 'id msg)))
+  (-if-let* ((raw-id (dart--get msg 'id))
              (id (string-to-number raw-id)))
       ;; This is a response to a request, so we should invoke a callback in
       ;; dart--analysis-server-callbacks.
-      (-if-let (resp-closure (assoc id dart--analysis-server-callbacks))
+      (-if-let (resp-closure (dart--get dart--analysis-server-callbacks id))
           (progn
             (setq dart--analysis-server-callbacks
                   (assq-delete-all id dart--analysis-server-callbacks))
-            (funcall (cdr resp-closure) msg))mode
-        (-if-let (err (assoc 'error msg))
+            (funcall resp-closure msg))
+        (-if-let (err (dart--get msg 'error))
             (dart--analysis-server-on-error-callback msg)
           (dart-info (format "No callback was associated with id %s" raw-id))))
 
     ;; This is a notification, so we should invoke callbacks in
     ;; dart--analysis-server-subscriptions.
-    (-when-let* ((event (cdr (assoc 'event msg)))
-                 (params (cdr (assoc 'params msg)))
-                 (callbacks (cdr (assoc event dart--analysis-server-subscriptions))))
+    (-when-let* ((event (dart--get msg 'event))
+                 (params (dart--get msg 'params))
+                 (callbacks (dart--get dart--analysis-server-subscriptions event)))
       (dolist (callback callbacks)
         (let ((subscription (cons event callback)))
           (apply callback params subscription nil))))))
@@ -1009,8 +1014,8 @@ SUBSCRIPTION is an opaque object provided by
 The errors contained in RESPONSE from Dart analysis server run on BUFFER are
 reported to CALLBACK."
   (dart-info (format "Reporting to flycheck: %s" response))
-  (-when-let* ((resp-result (cdr (assoc 'result response)))
-               (resp-errors (cdr (assoc 'errors resp-result))))
+  (-when-let* ((resp-result (dart--get response 'result))
+               (resp-errors (dart--get resp-result 'errors)))
     (let ((fly-errors
            (-map (lambda (err) (dart--to-flycheck-err err buffer)) resp-errors)))
       (dart-info (format "Parsed errors: %s" fly-errors))
@@ -1018,20 +1023,19 @@ reported to CALLBACK."
 
 (defun dart--to-flycheck-err (err buffer)
   "Create a flycheck error from a dart ERR in BUFFER."
-  (-let* ((severity (cdr (assoc 'severity err)))
-          (location (cdr (assoc 'location err)))
-          (msg (cdr (assoc 'message err)))
+  (-let* ((severity (dart--get err 'severity))
+          (message (dart--get err 'message))
           (level (dart--severity-to-level severity))
-          (filename (cdr (assoc 'file location)))
-          (line (cdr (assoc 'startLine location)))
-          (column (cdr (assoc 'startColumn location))))
+          (filename (dart--get err 'location 'file))
+          (line (dart--get err 'location 'startLine))
+          (column (dart--get err 'location 'startColumn)))
     (flycheck-error-new
      :buffer buffer
      :checker 'dart-analysis-server
      :filename filename
      :line line
      :column column
-     :message msg
+     :message message
      :level level)))
 
 (defun dart--severity-to-level (severity)
@@ -1057,8 +1061,7 @@ minibuffer."
        "analysis.getHover"
        `(("file" . ,filename) ("offset" . ,pos))
        (lambda (response)
-         (-when-let* ((result (cdr (assoc 'result response)))
-                      (hovers (cdr (assoc 'hovers result)))
+         (-when-let* ((hovers (dart--get response 'result 'hovers))
                       (hover (if (eq (length hovers) 0) nil (elt hovers 0))))
            (dart--json-let hover
                (offset
@@ -1192,16 +1195,16 @@ minibuffer."
      "analysis.getNavigation"
      `(("file" . ,filename) ("offset" . ,(point)) ("length" . 0))
      (lambda (response)
-       (-when-let (result (cdr (assoc 'result response)))
+       (-when-let (result (dart--get response 'result))
          (dart--json-let result (files targets regions)
            (unless (eq (length regions) 0)
              (let* ((region (elt regions 0))
-                    (target-index (elt (cdr (assoc 'targets region)) 0))
+                    (target-index (elt (dart--get region 'targets) 0))
                     (target (elt targets target-index))
 
-                    (file-index (cdr (assoc 'fileIndex target)))
-                    (offset (cdr (assoc 'offset target)))
-                    (length (cdr (assoc 'length target)))
+                    (file-index (dart--get target 'fileIndex))
+                    (offset (dart--get target 'offset))
+                    (length (dart--get target 'length))
 
                     (file (elt files file-index)))
                (find-file file)
@@ -1222,12 +1225,11 @@ minibuffer."
                    (pos pos)
                    (include-potential include-potential))
        (lambda (response)
-         (-when-let (result (cdr (assoc 'result response)))
-           (lexical-let* ((element (cdr (assoc 'element result)))
-                          (name (cdr (assoc 'name element)))
-                          (location (cdr (assoc 'location element))))
+         (-when-let (result (dart--get response 'result))
+           (lexical-let ((name (dart--get result 'element 'name))
+                         (location (dart--get result 'element 'location)))
              (dart--display-search-results
-              (cdr (assoc 'id result))
+              (dart--get result 'id)
               (lambda () 
                 (setq dart--do-it-again-callback
                       (lambda ()
@@ -1271,9 +1273,9 @@ ARGUMENT. Displays a header beginning with HEADER in the results."
                  (name name)
                  (header header))
      (lambda (response)
-       (-when-let (result (cdr (assoc 'result response)))
+       (-when-let (id (dart--get response 'result 'id))
          (dart--display-search-results
-          (cdr (assoc 'id result))
+          id
           (lambda ()
             (setq dart--do-it-again-callback
                   (lambda ()
@@ -1307,31 +1309,29 @@ to add a header and otherwise prepare it for displaying results."
                   (goto-char (point-max))
                   (loop
                    for result across results
-                   do (lexical-let* ((location (cdr (assoc 'location result)))
-                                     (path (cdr (assoc 'path result))))
+                   do (lexical-let ((location (dart--get result 'location))
+                                    (path (dart--get result 'path)))
                         (let ((start (point)))
                           (dart--fontify-excursion '(compilation-info underline)
                             (when (cl-some
                                    (lambda (element)
-                                     (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
+                                     (equal (dart--get element 'kind) "CONSTRUCTOR"))
                                    path)
                               (insert "new "))
 
                             (insert
                              (loop for element across path
-                                   unless (member (cdr (assoc 'kind element))
+                                   unless (member (dart--get element 'kind)
                                                   '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
-                                   unless (string-empty-p (cdr (assoc 'name element)))
-                                   collect (cdr (assoc 'name element)) into names
+                                   unless (string-empty-p (dart--get element 'name))
+                                   collect (dart--get element 'name) into names
                                    finally return (mapconcat 'identity (reverse names) ".")))
 
                             (make-text-button
                              start (point)
                              'action (lambda (_) (dart--goto-location location))))
 
-                          (let ((file (cdr (assoc 'file location)))
-                                (line (cdr (assoc 'startLine location)))
-                                (column (cdr (assoc 'startColumn location))))
+                          (dart--json-let location (file (line startLine) (column startColumn))
                             (insert " " file ":"
                                     (dart--face-string line 'compilation-line-number) ":"
                                     (dart--face-string column 'compilation-column-number) ?\n)))))
@@ -1428,9 +1428,8 @@ stayas in place when the parameter is overwritten.")
            ("offset" . ,(- (point) 1)))
          (lexical-let ((buffer (current-buffer)))
            (lambda (response)
-             (-when-let (result (cdr (assoc 'result response)))
-               (lexical-let ((completion-id (cdr (assoc 'id result)))
-                             (first t))
+             (-when-let (completion-id (dart--get response 'result 'id))
+               (lexical-let ((first t))
                  (dart--analysis-server-subscribe
                   "completion.results"
                   (setq dart--last-expand-subscription
@@ -1460,7 +1459,7 @@ If FIRST is non-nil, this is the first completion event for this completion."
       (setq results
             (remove-if-not
              (lambda (suggestion)
-               (string-prefix-p text (cdr (assoc 'completion suggestion)) t))
+               (string-prefix-p text (dart--get suggestion 'completion) t))
              results))))
 
   (when (> (length results) 0)
