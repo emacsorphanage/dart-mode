@@ -970,7 +970,7 @@ the callback for that request is given the json decoded response."
                  (callbacks (dart--get dart--analysis-server-subscriptions event)))
       (dolist (callback callbacks)
         (let ((subscription (cons event callback)))
-          (apply callback params subscription nil))))))
+          (funcall callback params subscription))))))
 
 (defun dart--analysis-server-subscribe (event callback)
   "Registers CALLBACK to be called for each EVENT of the given type.
@@ -1289,7 +1289,7 @@ to add a header and otherwise prepare it for displaying results."
      "*Dart Search*" nil nil
      (dart-popup-mode)
      (setq buffer (current-buffer))
-     (apply callback nil)
+     (funcall callback)
      (setq beginning-of-results (point))
 
      (dart--analysis-server-subscribe
@@ -1646,7 +1646,7 @@ Only set in `dart-popup-mode'.")
   "Re-runs the logic that generated the current buffer."
   (interactive)
   (when dart--do-it-again-callback
-    (apply dart--do-it-again-callback nil)))
+    (funcall dart--do-it-again-callback)))
 
 
 ;;; Formatting
