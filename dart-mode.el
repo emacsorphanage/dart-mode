@@ -1262,7 +1262,10 @@ ARGUMENT. Displays a header beginning with HEADER in the results."
 
 CALLBACK is called with no arguments in the search result buffer
 to add a header and otherwise prepare it for displaying results."
-  (lexical-let* (buffer (search-id search-id) beginning-of-results)
+  (lexical-let* (buffer
+                 (search-id search-id)
+                 beginning-of-results
+                 (total-results 0))
     (with-current-buffer-window
      "*Dart Search*" nil nil
      (setq buffer (current-buffer))
@@ -1275,42 +1278,45 @@ to add a header and otherwise prepare it for displaying results."
         (with-current-buffer buffer
           (dart--json-let event (id results (is-last isLast))
             (when (equal id search-id)
-              (when (eq is-last t)
-                (dart--analysis-server-unsubscribe subscription))
+              (let ((buffer-read-only nil))
+                (save-excursion
+                  (goto-char (point-max))
+                  (loop
+                   for result across results
+                   do (lexical-let* ((location (cdr (assoc 'location result)))
+                                     (path (cdr (assoc 'path result))))
+                        (let ((start (point)))
+                          (dart--fontify-excursion '(compilation-info underline)
+                            (when (cl-some
+                                   (lambda (element)
+                                     (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
+                                   path)
+                              (insert "new "))
 
-              (save-excursion
-                (goto-char (point-max))
-                (loop
-                 for result across results
-                 do (lexical-let* ((location (cdr (assoc 'location result)))
-                                   (path (cdr (assoc 'path result))))
-                      (let ((start (point))
-                            (buffer-read-only nil))
-                        (dart--fontify-excursion '(compilation-info underline)
-                          (when (cl-some
-                                 (lambda (element)
-                                   (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
-                                 path)
-                            (insert "new "))
+                            (insert
+                             (loop for element across path
+                                   unless (member (cdr (assoc 'kind element))
+                                                  '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
+                                   unless (string-empty-p (cdr (assoc 'name element)))
+                                   collect (cdr (assoc 'name element)) into names
+                                   finally return (mapconcat 'identity (reverse names) ".")))
 
-                          (insert
-                           (loop for element across path
-                                 unless (member (cdr (assoc 'kind element))
-                                                '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
-                                 unless (string-empty-p (cdr (assoc 'name element)))
-                                 collect (cdr (assoc 'name element)) into names
-                                 finally return (mapconcat 'identity (reverse names) ".")))
+                            (make-text-button
+                             start (point)
+                             'action (lambda (_) (dart--goto-location location))))
 
-                          (make-text-button
-                           start (point)
-                           'action (lambda (_) (dart--goto-location location))))
+                          (let ((file (cdr (assoc 'file location)))
+                                (line (cdr (assoc 'startLine location)))
+                                (column (cdr (assoc 'startColumn location))))
+                            (insert " " file ":"
+                                    (dart--face-string line 'compilation-line-number) ":"
+                                    (dart--face-string column 'compilation-column-number) ?\n)))))
 
-                        (let ((file (cdr (assoc 'file location)))
-                              (line (cdr (assoc 'startLine location)))
-                              (column (cdr (assoc 'startColumn location))))
-                          (insert " " file ":"
-                                  (dart--face-string line 'compilation-line-number) ":"
-                                  (dart--face-string column 'compilation-column-number) ?\n))))))))))))
+                  (setq total-results (+ total-results (length results)))
+
+                  (when (eq is-last t)
+                    (dart--analysis-server-unsubscribe subscription)
+                    (insert "\nFound " (dart--face-string total-results 'bold) " results."))))))))))
 
     (select-window (get-buffer-window buffer))
     (goto-char beginning-of-results)))
