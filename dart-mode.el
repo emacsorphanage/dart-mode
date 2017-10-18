@@ -987,11 +987,15 @@ reported to CALLBACK."
 
 ;;;; Hover
 
-(defun dart-show-hover ()
-  "Displays hover information for the current point."
-  (interactive)
+(defun dart-show-hover (&optional show-in-buffer)
+  "Displays hover information for the current point.
+
+With a prefix argument, opens a new buffer rather than using the
+minibuffer."
+  (interactive "P")
   (-when-let (filename (buffer-file-name))
-    (lexical-let ((buffer (current-buffer)))
+    (lexical-let ((show-in-buffer show-in-buffer)
+                  (buffer (current-buffer)))
       (dart--analysis-server-send
        "analysis.getHover"
        `(("file" . ,filename) ("offset" . ,(point)))
@@ -1026,8 +1030,17 @@ reported to CALLBACK."
                  (when dartdoc) (insert ?\n))
                (when dartdoc
                  (when (or element-description parameter) (insert ?\n))
-                 (insert (dart--highlight-dartdoc dartdoc)))
-               (message "%s" (buffer-string))))))))))
+                 (insert (dart--highlight-dartdoc dartdoc (not show-in-buffer))))
+
+               (let ((text (buffer-string)))
+                 (if show-in-buffer
+                     (with-current-buffer-window
+                      "*Dart Analysis*" nil nil
+                      (insert text)
+                      ;; We should really create our own mode, but this will do
+                      ;; in a pinch.
+                      (help-mode))
+                   (message "%s" text)))))))))))
 
 (defconst dart--highlight-keyword-re
   (regexp-opt
@@ -1088,14 +1101,15 @@ reported to CALLBACK."
      (and (looking-at (concat "\\(" dart--identifier-re "\\|[<>]\\)*"))
           (eq (char-after (match-end 0)) ?\()))))
 
-(defun dart--highlight-dartdoc (dartdoc)
+(defun dart--highlight-dartdoc (dartdoc truncate)
   "Returns a higlighted copy of DARTDOC."
   (with-temp-buffer
     (insert dartdoc)
 
     ;; Cut off long dartdocs so that the full signature is always visible.
-    (goto-line 11)
-    (delete-region (- (point) 1) (point-max))
+    (when truncate
+      (goto-line 11)
+      (delete-region (- (point) 1) (point-max)))
 
     (goto-char (point-min))
 

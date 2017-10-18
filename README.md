@@ -41,3 +41,7 @@ To see all the information the analyzer knows about a particular identifier,
 move your cursor onto it and press `C-c ?`. This will show the identifier's type
 and documentation in the echo area at the bottom of the editor, as well as some
 extra information if it's available.
+
+Sometimes there's just too much documentation to fit down there, or you want to
+keep the documentation open as you're working. In that case, you can run `C-u
+C-c ?` instead to open the information in a new window to read at your leisure.
