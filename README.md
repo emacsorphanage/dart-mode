@@ -89,6 +89,11 @@ autocomplete, but the UI works like Emacs' [`dabbrev-expand`][dabbrev] command.
 You can press `M-/` multiple times in a row to cycle through possible
 completions.
 
+When you've selected an expansion that's a method call, you can press `M-?`
+(`M-/` plus shift) to insert the parameter list. The first parameter will be
+selected, and anything you type will replace it. Once it's replaced, you can
+press `M-?` again to select the second parameter, and so on.
+
 [dabbrev]: https://www.gnu.org/software/emacs/manual/html_node/emacs/Dynamic-Abbrevs.html
 
 If the analysis server isn't enabled for the current buffer, this will fall back

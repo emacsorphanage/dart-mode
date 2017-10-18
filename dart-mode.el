@@ -1366,14 +1366,32 @@ defaults to the command globally bound to M-/."
 (defvar dart--last-expand-results nil
   "The results of the last call to `dart-expand'.")
 
-(defvar dart--last-expand-offset nil
-  "The offset of the text inserted by the last call to `dart-expand'.")
+(defvar dart--last-expand-beginning nil
+  "The marker for the beginning of the text inserted by the last call to `dart-expand'.")
 
-(defvar dart--last-expand-length nil
-  "The length of the text inserted by the last call to `dart-expand'.")
+(defvar dart--last-expand-end nil
+  "The marker for the end of the text inserted by the last call to `dart-expand'.")
 
 (defvar dart--last-expand-index nil
   "The index into `dart--last-expand-results' for the last call to `dart-expand'.")
+
+(defvar dart--last-expand-parameters-index nil
+  "The index into for the last parameter suggestion from `dart-expand-parameters'.
+
+This is an index into the paramaterNames and parameterTypes list
+in the suggestion identified by `dart--last-expand-index', and
+into `dart--last-expand-parameters-ranges'.")
+
+(defvar dart--last-expand-parameters-ranges nil
+  "The list of parameter ranges for the last call to `dart-expand-parameters'.
+
+This is a list of pairs of markers. Each pair identifies the
+beginning and end of a parameter in the parameter list generated
+by `dart-expand-parameters'`.
+
+Note that the end markers are placed one character after the
+actual ending of the parameter. This ensures that if the marker
+stayas in place when the parameter is overwritten.")
 
 (defvar dart--last-expand-subscription nil
   "The last analysis server subscription from a call to `dart-expand'.")
@@ -1391,15 +1409,15 @@ defaults to the command globally bound to M-/."
           (when (>= dart--last-expand-index (length dart--last-expand-results))
             (setq dart--last-expand-index 0))
           (dart--use-expand-suggestion
-           dart--last-expand-offset
-           dart--last-expand-length
+           dart--last-expand-beginning
+           dart--last-expand-end
            (elt dart--last-expand-results dart--last-expand-index)))
 
       (when dart--last-expand-subscription
         (dart--analysis-server-unsubscribe dart--last-expand-subscription))
       (setq dart--last-expand-results nil)
-      (setq dart--last-expand-offset nil)
-      (setq dart--last-expand-length nil)
+      (setq dart--last-expand-beginning nil)
+      (setq dart--last-expand-end nil)
       (setq dart--last-expand-index nil)
       (setq dart--last-expand-subscription nil)
 
@@ -1451,24 +1469,24 @@ If FIRST is non-nil, this is the first completion event for this completion."
     ;; calls.
     (when first
       (setq dart--last-expand-index 0)
-      (setq dart--last-expand-offset (+ offset 1))
-      (dart--use-expand-suggestion (+ offset 1) length (elt results 0)))
+      (setq dart--last-expand-beginning (copy-marker (+ offset 1)))
+      (dart--use-expand-suggestion (+ offset 1) (+ offset length 1) (elt results 0)))
 
     (setq first nil)
     (setq dart--last-expand-results results)))
 
-(defun dart--use-expand-suggestion (offset length suggestion)
-  "Inserts SUGGESTION at OFFSET and LENGTH."
+(defun dart--use-expand-suggestion (beginning end suggestion)
+  "Inserts SUGGESTION between BEGINNING and END."
   (dart--json-let suggestion
       (completion element
        (selection-offset selectionOffset)
        (is-deprecated isDeprecated)
        (doc-summary docSummary))
-    (setq dart--last-expand-length (length completion))
-
-    (goto-char offset)
-    (delete-char length)
-    (save-excursion (insert completion))
+    (goto-char beginning)
+    (delete-region beginning end)
+    (save-excursion
+      (insert completion)
+      (setq dart--last-expand-end (point-marker)))
     (forward-char selection-offset)
 
     (with-temp-buffer
@@ -1510,8 +1528,13 @@ If FIRST is non-nil, this is the first completion event for this completion."
 
 This will select the first parameter, if one exists."
   (interactive "*")
-  (when (and (eq last-command 'dart-expand)
-             dart--last-expand-results)
+  (cond
+   ((and (eq last-command 'dart-expand)
+         dart--last-expand-results)
+
+    ;; If this is called directly after `dart-expand', create the parameter list
+    ;; and highlight the first entry.
+    (setq dart--last-expand-parameters-index 0)    
     (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
         ((parameter-names parameterNames)
          (argument-string defaultArgumentListString)
@@ -1521,35 +1544,60 @@ This will select the first parameter, if one exists."
         (setq argument-ranges (or argument-ranges [0 0]))
 
         (save-excursion
-          (insert ?\( argument-string ?\)))
-        (incf dart--last-expand-length (+ (length argument-string) 2))
+          (insert ?\( argument-string ?\))
+          (setq dart--last-expand-end (point-marker)))
 
-        (setq transient-mark-mode nil)
-        (forward-char (+ 1 (elt argument-ranges 0)))
-        (push-mark nil t)
-        (forward-char (elt argument-ranges 1))
+        (setq dart--last-expand-parameters-ranges
+              (loop for i below (length argument-ranges) by 2
+                    collect (let* ((beginning (+ (point) 1 (elt argument-ranges i)))
+                                   (end (+ beginning (elt argument-ranges (+ i 1)) 1)))
+                              (list (copy-marker beginning) (copy-marker end)))))
 
-        ;; Run this in a timer because `activate-mark' doesn't seem to work
-        ;; directly, and because we don't want to disable `delete-selection-mode'
-        ;; after this command.
-        (run-at-time
-         "0 sec" nil
-         (lambda ()
-           (activate-mark)
+        (let ((range (car dart--last-expand-parameters-ranges)))
+          (dart--delsel-range (car range) (- (cadr range) 1))))))
 
-           ;; Overwrite the current selection, but don't globally enable
-           ;; delete-selection-mode.
-           (unless delete-selection-mode
-             (delete-selection-mode 1)
-             (add-hook 'post-command-hook 'dart--disable-highlight t t))))))))
+   ((and (< dart--last-expand-beginning (point) dart--last-expand-end)
+         dart--last-expand-parameters-index)
 
-(defun dart--disable-highlight ()
+    ;; If this is called when the point is within the text generated by the
+    ;; last `dart-expand-parameters' call, move to the next parameter in the
+    ;; list.
+    (incf dart--last-expand-parameters-index)
+    (when (>= dart--last-expand-parameters-index (length dart--last-expand-parameters-ranges))
+      (setq dart--last-expand-parameters-index 0))
+
+    (let ((range (elt dart--last-expand-parameters-ranges
+                      dart--last-expand-parameters-index)))
+      (dart--delsel-range (car range) (- (cadr range) 1))))))
+
+(defun dart--delsel-range (beginning end)
+  "Highlights the range between BEGINNING and END and enables `delete-selection-mode' temporarily."
+  (setq transient-mark-mode nil)
+  (goto-char beginning)
+  (push-mark nil t)
+  (goto-char end)
+
+  ;; Run this in a timer because `activate-mark' doesn't seem to work
+  ;; directly, and because we don't want to disable `delete-selection-mode'
+  ;; when `post-command-hook' is invoked after the calling command finishes.
+  (run-at-time
+   "0 sec" nil
+   (lambda ()
+     (activate-mark)
+
+     ;; Overwrite the current selection, but don't globally enable
+     ;; delete-selection-mode.
+     (unless delete-selection-mode
+       (delete-selection-mode 1)
+       (add-hook 'post-command-hook 'dart--disable-delsel t t)))))
+
+(defun dart--disable-delsel ()
   "Disables `delete-selection-mode' and deactivates the mark.
 
 Also removes this function from `post-command-hook'."
   (deactivate-mark)
   (delete-selection-mode 0)
-  (remove-hook 'post-command-hook 'dart--disable-delete-selection-mode t))
+  (remove-hook 'post-command-hook 'dart--disable-delsel t))
 
 
 ;;; Popup Mode

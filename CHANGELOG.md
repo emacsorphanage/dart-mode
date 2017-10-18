@@ -19,7 +19,9 @@
   of references to members with a given name.
 
 * Added a `dart-expand` command bound to `M-/` which cycles through possible
-  completions for the text typed by the user.
+  completions for the text typed by the user, as well as a
+  `dart-expand-parameters` command bound to `M-?` which inserts the parameter
+  list for the chosen completion.
 
 * `dart-executable-path`'s default value is now set correctly even if the
   executable named `dart` on the user's path is a symlink or a wrapper script.
