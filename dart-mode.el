@@ -131,41 +131,20 @@ true for positions before the start of the statement, but on its line."
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
-(defun dart--goto-line (line)
-  "Move to the specified line."
-  (goto-char (point-min))
-  (forward-line (1- line)))
-
-(defun dart--delete-whole-line (&optional arg)
-  "Delete the current line without putting it in the `kill-ring'.
-Derived from function `kill-whole-line'.  ARG is defined as for that
-function."
-  (setq arg (or arg 1))
-  (if (and (> arg 0)
-           (eobp)
-           (save-excursion (forward-visible-line 0) (eobp)))
-      (signal 'end-of-buffer nil))
-  (if (and (< arg 0)
-           (bobp)
-           (save-excursion (end-of-visible-line) (bobp)))
-      (signal 'beginning-of-buffer nil))
-  (cond ((zerop arg)
-         (delete-region (progn (forward-visible-line 0) (point))
-                        (progn (end-of-visible-line) (point))))
-        ((< arg 0)
-         (delete-region (progn (end-of-visible-line) (point))
-                        (progn (forward-visible-line (1+ arg))
-                               (unless (bobp)
-                                 (backward-char))
-                               (point))))
-        (t
-         (delete-region (progn (forward-visible-line 0) (point))
-                        (progn (forward-visible-line arg) (point))))))
-
 (defun dart--forward-identifier ()
   "Moves the point forward through a Dart identifier."
   (when (looking-at dart--identifier-re)
     (goto-char (match-end 0))))
+
+(defun dart--kill-buffer-and-window (buffer)
+  "Kills BUFFER, and its window if it has one.
+
+This is different than `kill-buffer' because, if the buffer has a
+window, it respects the `quit-restore' window parameter. See
+`quit-window' for details."
+  (-if-let (window (get-buffer-window buffer))
+      (quit-window t window)
+    (kill-buffer buffer)))
 
 (defun dart--get (alist &rest keys)
   "Recursively calls `cdr' and `assoc' on ALIST with KEYS.
@@ -463,6 +442,7 @@ Returns nil if `dart-sdk-path' is nil."
 (define-key dart-mode-map (kbd "C-c C-e") 'dart-find-member-decls)
 (define-key dart-mode-map (kbd "C-c C-r") 'dart-find-member-refs)
 (define-key dart-mode-map (kbd "C-c C-t") 'dart-find-top-level-decls)
+(define-key dart-mode-map (kbd "C-c C-o") 'dart-format)
 (define-key dart-mode-map (kbd "M-/") 'dart-expand)
 (define-key dart-mode-map (kbd "M-?") 'dart-expand-parameters)
 
@@ -1655,147 +1635,164 @@ Only set in `dart-popup-mode'.")
 
 ;;; Formatting
 
-(defcustom dartfmt-command "dartfmt"
-  "The 'dartfmt' command."
+(defcustom dart-formatter-command-override nil
+  "The command for running the Dart formatter.
+
+Don't read this variable; call `dart-formatter-command' instead."
   :type 'string
-  :group 'dart-mode)
+  :group 'dart-mode
+  :package-version '(dart-mode . "1.0.0"))
 
-(defcustom dartfmt-args nil
-  "Additional arguments to pass to dartfmt."
-  :type '(repeat string)
-  :group 'dart-mode)
+(defcustom dart-formatter-line-length 80
+  "The line length to use when running the Dart formatter."
+  :type 'integer
+  :group 'dart-mode
+  :package-version '(dart-mode . "1.0.0"))
 
-(defcustom dartfmt-show-errors 'buffer
-  "Where to display dartfmt error output.
+(defcustom dart-format-on-save nil
+  "Whether to run the Dart formatter before saving."
+  :type 'boolean
+  :group 'dart-mode
+  :package-version '(dart-mode . "1.0.0"))
+
+(defcustom dart-formatter-show-errors 'buffer
+  "Where to display Dart formatter error output.
 It can either be displayed in its own buffer, in the echo area, or not at all.
 
 Please note that Emacs outputs to the echo area when writing
-files and will overwrite dartfmt's echo output if used from inside
-a `before-save-hook'."
+files and will overwrite the formatter's echo output if used from
+inside a `before-save-hook'."
   :type '(choice
           (const :tag "Own buffer" buffer)
           (const :tag "Echo area" echo)
           (const :tag "None" nil))
   :group 'dart-mode)
 
-(defvar dartfmt-compilation-regexp
+(defun dart-formatter-command ()
+  "The command for running the Dart formatter.
+
+This can be customized by setting `dart-formatter-command-override'."
+  (or dart-formatter-command-override
+      (when dart-sdk-path
+        (file-name-as-directory "bin")
+            (if (memq system-type '(ms-dos windows-nt))
+                "dartfmt.exe"
+              "dartfmt"))))
+
+(defvar dart--formatter-compilation-regexp
   '("^line \\([0-9]+\\), column \\([0-9]+\\) of \\([^ \n]+\\):" 3 1 2)
-  "Specifications for matching errors in dartfmt's output.
+  "Regular expresion to match errors in the formatter's output.
 See `compilation-error-regexp-alist' for help on their format.")
 
 (add-to-list 'compilation-error-regexp-alist-alist
-             (cons 'dartfmt dartfmt-compilation-regexp))
-(add-to-list 'compilation-error-regexp-alist 'dartfmt)
+             (cons 'dart-formatter dart--formatter-compilation-regexp))
+(add-to-list 'compilation-error-regexp-alist 'dart-formatter)
 
-(defun dartfmt ()
-  "Format the current buffer according to the dartfmt tool."
+(defun* dart-format ()
+  "Format the current buffer using the Dart formatter.
+
+By default, this uses the formatter in `dart-sdk-path'. However,
+this can be overridden by customizing
+`dart-formatter-command-override'."
   (interactive)
-  (let ((tmpfile (make-temp-file "dartfmt" nil ".dart"))
-        (patchbuf (get-buffer-create "*Dartfmt patch*"))
-        (errbuf (if dartfmt-show-errors (get-buffer-create "*Dartfmt Errors*")))
-        (coding-system-for-read 'utf-8)
-        (coding-system-for-write 'utf-8)
-        our-dartfmt-args)
+  (let* ((file (make-temp-file "format" nil ".dart"))
+         (patch-buffer (get-buffer-create "*Dart formatter patch*"))
+         (error-buffer (when dart-formatter-show-errors
+                         (get-buffer-create "*Dart formatter errors*")))
+         (coding-system-for-read 'utf-8)
+         (coding-system-for-write 'utf-8)
+         (args `("--line-length" ,(number-to-string dart-formatter-line-length)
+                 "--overwrite" ,file)))
     (unwind-protect
         (save-restriction
           (widen)
-          (if errbuf
-              (with-current-buffer errbuf
-                (setq buffer-read-only nil)
-                (erase-buffer)))
-          (with-current-buffer patchbuf
-            (erase-buffer))
-          (write-region nil nil tmpfile)
-          (setq our-dartfmt-args (append our-dartfmt-args
-                                       dartfmt-args
-                                       (list "-w" tmpfile)))
-          (message "Calling dartfmt: %s %s" dartfmt-command our-dartfmt-args)
-          (if (zerop (apply #'call-process dartfmt-command nil errbuf nil our-dartfmt-args))
-              (progn
-                (if (zerop (call-process-region (point-min) (point-max) "diff" nil patchbuf nil "-n" "-" tmpfile))
-                    (message "Buffer is already dartmted")
-                  (dart--apply-rcs-patch patchbuf)
-                  (message "Applied dartfmt"))
-                (if errbuf (dartfmt--kill-error-buffer errbuf)))
-            (message "Could not apply dartfmt")
-            (if errbuf (dartfmt--process-errors (buffer-file-name) tmpfile errbuf))))
-      (kill-buffer patchbuf)
-      (delete-file tmpfile))))
+
+          (when error-buffer
+            (with-current-buffer error-buffer
+              (setq buffer-read-only nil)
+              (erase-buffer)))
+
+          (write-region nil nil file nil 'no-message)
+          (dart-info (format "%s %s" (dart-formatter-command) args))
+
+          (unless (zerop (apply #'call-process (dart-formatter-command) nil error-buffer nil args))
+            (message "Formatting failed")
+            (when error-buffer
+              (dart--formatter-show-errors error-buffer file (buffer-file-name)))
+            (return-from dart-format))
+
+          ;; Apply the format as a diff so that only portions of the buffer that
+          ;; actually change are marked as modified.
+          (if (zerop (call-process-region (point-min) (point-max)
+                                          "diff" nil patch-buffer nil "--rcs" "-" file))
+              (message "Buffer is already formatted")
+            (dart--apply-rcs-patch patch-buffer)
+            (message "Formatted buffer"))
+          (when error-buffer (dart--kill-buffer-and-window error-buffer)))
+      (kill-buffer patch-buffer)
+      (delete-file file))))
 
 (defun dart--apply-rcs-patch (patch-buffer)
-  "Apply an RCS-formatted diff from PATCH-BUFFER to the current buffer."
+  "Apply an RCS diff from PATCH-BUFFER to the current buffer."
   (let ((target-buffer (current-buffer))
-        ;; Relative offset between buffer line numbers and line numbers
-        ;; in patch.
+        ;; The relative offset between line numbers in the buffer and in patch.
         ;;
-        ;; Line numbers in the patch are based on the source file, so
-        ;; we have to keep an offset when making changes to the
-        ;; buffer.
+        ;; Line numbers in the patch are based on the source file, so we have to
+        ;; keep an offset when making changes to the buffer.
         ;;
-        ;; Appending lines decrements the offset (possibly making it
-        ;; negative), deleting lines increments it. This order
-        ;; simplifies the forward-line invocations.
+        ;; Appending lines decrements the offset (possibly making it negative),
+        ;; deleting lines increments it. This order simplifies the forward-line
+        ;; invocations.
         (line-offset 0))
     (save-excursion
       (with-current-buffer patch-buffer
         (goto-char (point-min))
         (while (not (eobp))
           (unless (looking-at "^\\([ad]\\)\\([0-9]+\\) \\([0-9]+\\)")
-            (error "invalid rcs patch or internal error in dart--apply-rcs-patch"))
+            (error "Invalid RCS patch or internal error in dart--apply-rcs-patch"))
+
           (forward-line)
           (let ((action (match-string 1))
                 (from (string-to-number (match-string 2)))
                 (len  (string-to-number (match-string 3))))
             (cond
              ((equal action "a")
-              (let ((start (point)))
+              (-let [start (point)]
                 (forward-line len)
-                (let ((text (buffer-substring start (point))))
+                (-let [text (buffer-substring start (point))]
                   (with-current-buffer target-buffer
-                    (cl-decf line-offset len)
+                    (decf line-offset len)
                     (goto-char (point-min))
                     (forward-line (- from len line-offset))
                     (insert text)))))
+
              ((equal action "d")
               (with-current-buffer target-buffer
-                (dart--goto-line (- from line-offset))
-                (cl-incf line-offset len)
-                (dart--delete-whole-line len)))
+                (goto-char (point-min))
+                (forward-line (- from line-offset 1))
+                (incf line-offset len)
+                (let (kill-ring) (kill-whole-line len))))
+
              (t
-              (error "invalid rcs patch or internal error in dart--apply-rcs-patch")))))))))
+              (error "Invalid RCS patch or internal error in dart--apply-rcs-patch")))))))))
 
-(defun dartfmt--kill-error-buffer (errbuf)
-  "Kill the dartfmt error buffer."
-  (let ((win (get-buffer-window errbuf)))
-    (if win
-        (quit-window t win)
-      (kill-buffer errbuf))))
-
-(defun dartfmt--process-errors (filename tmpfile errbuf)
-  "Display the dartfmt errors."
-  (message tmpfile)
-  (with-current-buffer errbuf
-    (if (eq dartfmt-show-errors 'echo)
-        (progn
-          (message "%s" (buffer-string))
-          (dartfmt--kill-error-buffer errbuf))
+(defun dart--formatter-show-errors (error-buffer temp-file real-file)
+  "Display formatter errors in `error-buffer'.
+This replaces references to TEMP-FILE with REAL-FILE."
+  (with-current-buffer error-buffer
+    (-let [echo (eq dart-formatter-show-errors 'echo)]
       (goto-char (point-min))
-      (insert "dartfmt errors:\n")
-      (while (search-forward-regexp (concat "\\(" (regexp-quote tmpfile) "\\):") nil t)
-        (replace-match (file-name-nondirectory filename) t t nil 1))
-      (compilation-mode)
-      (display-buffer errbuf))))
+      (-let [regexp (concat "\\(" (regexp-quote temp-file) "\\):")]
+        (while (search-forward-regexp regexp nil t)
+          (replace-match (file-name-nondirectory real-file) t t nil 1)))
 
-;;;###autoload
-(defun dartfmt-before-save ()
-  "Add this to .emacs to run dartfmt on the current buffer when saving:
- (add-hook 'before-save-hook 'dartfmt-before-save).
-
-Note that this will cause dart-mode to get loaded the first time
-you save any file, kind of defeating the point of autoloading."
-
-  (interactive)
-  (when (eq major-mode 'dart-mode) (dartfmt)))
+      (if echo
+          (progn
+            (message "%s" (buffer-string))
+            (dart--kill-buffer-and-window error-buffer))
+        (compilation-mode)
+        (temp-buffer-window-show error-buffer)
+        (select-window (get-buffer-window error-buffer))))))
 
 
 ;;; Initialization
@@ -1826,6 +1823,10 @@ Key bindings:
         (dart-log
          "Cannot find `dart' executable or Dart analysis server snapshot.")
       (dart--start-analysis-server-for-current-buffer)))
+
+  (add-hook (make-local-variable 'before-save-hook)
+            (lambda () (when dart-format-on-save (dart-format))))
+
   (run-hooks 'c-mode-common-hook)
   (run-hooks 'dart-mode-hook)
   (c-update-modeline))

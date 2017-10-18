@@ -8,6 +8,8 @@
   * [Navigation](#navigation)
   * [Search](#search)
   * [Expansion](#expansion)
+* [Dart Formatter](#dart-formatter)
+  * [Formatter Configuration](#formatter-configuration)
 
 ## Installation
 
@@ -112,3 +114,31 @@ If the analysis server isn't enabled for the current buffer, this will fall back
 to whatever command is assigned to `M-/` outside of Dart mode (`dabbrev-expand`
 in vanilla Emacs). This will usually pick up any custom key bindings, but if it
 doesn't you can manually choose a fallback by setting the `
+
+## Dart Formatter
+
+Dart comes with a [formatter][] that modifies Dart code's whitespace to make the
+formatting consistent and readable. You can press `C-c C-o` to format the
+current buffer.
+
+[formatter]: https://github.com/dart-lang/dart_style#readme
+
+### Formatter Configuration
+
+By default, `dart-mode` will use the version of the formatter that's bundled
+with the Dart SDK. However, you can customize this by setting
+`dart-formatter-command-override`. Note that if you want to access the formatter
+command from Elisp, you should call the `dart-formatter-command` function
+instead.
+
+When formatting fails, usually because the buffer's Dart code couldn't be
+parsed, a buffer listing the errors will pop up by default. This behavior can be
+customized by setting `dart-formatter-show-errors`. It has three valid values:
+
+* `'buffer` is the default, and pops up a buffer listing the errors.
+* `'echo` shows the errors temporarily in the echo area at the bottom of the frame.
+* `nil` doesn't show the errors at all.
+
+If you set the `dart-format-on-save` variable to `t`, the formatter will be run
+automatically before you save any Dart buffer. This can be helpful when working
+on codebases where formatting is required.

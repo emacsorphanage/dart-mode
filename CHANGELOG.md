@@ -25,6 +25,8 @@
   `dart-expand-parameters` command bound to `M-?` which inserts the parameter
   list for the chosen completion.
 
+* The `dart-format` command is now bound to `M-o`.
+
 * Added a `dart-sdk-path` variable.
 
 ### Replacements
@@ -32,6 +34,24 @@
 * `dart-executable-path` is now a function rather than a variable, so that it
   updates when `dart-sdk-path` is updated.
 
+* The `dartfmt-command` variable has been replaced by the
+  `dart-formatter-command` (for invoking the formatter) function and the
+  `dart-formatter-command-override` variable (for customizing the formatter
+  location).
+
+* The `dartfmt` command been renamed to `dart-format`.
+
+* The `dartfmt-args` variable has been replaced with the
+  `dart-formatter-line-length` variable.
+
+* The `dartfmt-show-errors` variable has been renamed to
+  `dart-formatter-show-errors`.
+
+* The `dartfmt-before-save` function has been removed. Customize the
+  `dart-format-on-save` variable instead..
+
 ### Removals
 
 * The `dart-analysis-server-snapshot-path` variable has been removed.
+
+* The `dartfmt-compilation-regexp` variable has been removed.
