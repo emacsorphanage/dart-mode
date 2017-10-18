@@ -419,6 +419,9 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
 (define-key dart-mode-map (kbd "C-c ?") 'dart-show-hover)
 (define-key dart-mode-map (kbd "C-c C-g") 'dart-goto)
 (define-key dart-mode-map (kbd "C-c C-f") 'dart-find-refs)
+(define-key dart-mode-map (kbd "C-c C-e") 'dart-find-member-decls)
+(define-key dart-mode-map (kbd "C-c C-r") 'dart-find-member-refs)
+(define-key dart-mode-map (kbd "C-c C-t") 'dart-find-top-level-decls)
 
 ;;; CC indentation support
 
@@ -1209,66 +1212,108 @@ minibuffer."
        ("includePotential" . ,(or include-potential json-false)))
      (lambda (response)
        (-when-let (result (cdr (assoc 'result response)))
-         (lexical-let* (buffer
-                        (search-id (cdr (assoc 'id result))))
-           (with-current-buffer-window
-            "*Dart Search*" nil nil
-            (setq buffer (current-buffer))
-
-            (lexical-let* ((element (cdr (assoc 'element result)))
-                           (name (cdr (assoc 'name element)))
-                           (location (cdr (assoc 'location element))))
+         (lexical-let* ((element (cdr (assoc 'element result)))
+                        (name (cdr (assoc 'name element)))
+                        (location (cdr (assoc 'location element))))
+           (dart--display-search-results
+            (cdr (assoc 'id result))
+            (lambda () 
               (insert "References to ")
               (insert-button
                name
                'action (lambda (_) (dart--goto-location location)))
-              (insert ":\n\n"))
+              (insert ":\n\n")))))))))
 
-            (dart--analysis-server-subscribe
-             "search.results"
-             (lambda (event subscription)
-               (with-current-buffer buffer
-                 (dart--json-let event (id results (is-last isLast))
-                   (when (equal id search-id)
-                     (when (eq is-last t)
-                       (dart--analysis-server-unsubscribe subscription))
+(defun dart-find-member-decls (name)
+  "Find member declarations named NAME."
+  (interactive "sMember name: ")
+  (dart--find-by-name
+   "search.findMemberDeclarations" "name" name "Members named "))
 
-                     (save-excursion
-                       (goto-char (point-max))
-                       (loop
-                        for result across results
-                        do (lexical-let* ((location (cdr (assoc 'location result)))
-                                          (path (cdr (assoc 'path result))))
-                             (let ((start (point))
-                                   (buffer-read-only nil))
-                               (dart--fontify-excursion '(compilation-info underline)
-                                 (when (cl-some
-                                        (lambda (element)
-                                          (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
-                                        path)
-                                   (insert "new "))
+(defun dart-find-member-refs (name)
+  "Find member references named NAME."
+  (interactive "sMember name: ")
+  (dart--find-by-name
+   "search.findMemberReferences" "name" name "References to "))
 
-                                 (insert
-                                  (loop for element across path
-                                        unless (member (cdr (assoc 'kind element))
-                                                       '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
-                                        unless (string-empty-p (cdr (assoc 'name element)))
-                                        collect (cdr (assoc 'name element)) into names
-                                        finally return (mapconcat 'identity (reverse names) ".")))
+(defun dart-find-top-level-decls (name)
+  "Find top-level declarations named NAME."
+  (interactive "sDeclaration name: ")
+  (dart--find-by-name
+   "search.findTopLevelDeclarations" "pattern" name "Declarations matching "))
 
-                                 (make-text-button
-                                  start (point)
-                                  'action (lambda (_) (dart--goto-location location))))
+(defun dart--find-by-name (method argument name header)
+  "A helper function for running an analysis server search for NAME.
 
-                               (let ((file (cdr (assoc 'file location)))
-                                     (line (cdr (assoc 'startLine location)))
-                                     (column (cdr (assoc 'startColumn location))))
-                                 (insert " " file ":"
-                                         (dart--face-string line 'compilation-line-number) ":"
-                                         (dart--face-string column 'compilation-column-number) ?\n))))))))))))
+Calls the given analysis server METHOD passing NAME to the given
+ARGUMENT. Displays a header beginning with HEADER in the results."
+  (dart--analysis-server-send
+   method
+   (list (cons argument name))
+   (lexical-let ((name name) (header header))
+     (lambda (response)
+       (-when-let (result (cdr (assoc 'result response)))
+         (dart--display-search-results
+          (cdr (assoc 'id result))
+          (lambda () (insert header name ":\n\n"))))))))  
 
-               (select-window (get-buffer-window buffer))
-               (forward-line 2)))))))
+(defun dart--display-search-results (search-id callback)
+  "Displays search results with the given SEARCH-ID.
+
+CALLBACK is called with no arguments in the search result buffer
+to add a header and otherwise prepare it for displaying results."
+  (lexical-let* (buffer (search-id search-id) beginning-of-results)
+    (with-current-buffer-window
+     "*Dart Search*" nil nil
+     (setq buffer (current-buffer))
+     (apply callback nil)
+     (setq beginning-of-results (point))
+
+     (dart--analysis-server-subscribe
+      "search.results"
+      (lambda (event subscription)
+        (with-current-buffer buffer
+          (dart--json-let event (id results (is-last isLast))
+            (when (equal id search-id)
+              (when (eq is-last t)
+                (dart--analysis-server-unsubscribe subscription))
+
+              (save-excursion
+                (goto-char (point-max))
+                (loop
+                 for result across results
+                 do (lexical-let* ((location (cdr (assoc 'location result)))
+                                   (path (cdr (assoc 'path result))))
+                      (let ((start (point))
+                            (buffer-read-only nil))
+                        (dart--fontify-excursion '(compilation-info underline)
+                          (when (cl-some
+                                 (lambda (element)
+                                   (equal (cdr (assoc 'kind element)) "CONSTRUCTOR"))
+                                 path)
+                            (insert "new "))
+
+                          (insert
+                           (loop for element across path
+                                 unless (member (cdr (assoc 'kind element))
+                                                '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
+                                 unless (string-empty-p (cdr (assoc 'name element)))
+                                 collect (cdr (assoc 'name element)) into names
+                                 finally return (mapconcat 'identity (reverse names) ".")))
+
+                          (make-text-button
+                           start (point)
+                           'action (lambda (_) (dart--goto-location location))))
+
+                        (let ((file (cdr (assoc 'file location)))
+                              (line (cdr (assoc 'startLine location)))
+                              (column (cdr (assoc 'startColumn location))))
+                          (insert " " file ":"
+                                  (dart--face-string line 'compilation-line-number) ":"
+                                  (dart--face-string column 'compilation-column-number) ?\n))))))))))))
+
+    (select-window (get-buffer-window buffer))
+    (goto-char beginning-of-results)))
 
 (defun dart--goto-location (location)
   "Sends the user to the analysis server LOCATION."

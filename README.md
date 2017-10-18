@@ -57,7 +57,25 @@ you're there, though: any edits may corrupt your package cache!
 
 ### Search
 
-You can search for all references to the identifier under your cursor by
-pressing `C-c C-f`. This will show you everywhere a method, getter, or setter is
-called; everywhere a class is used as a type, constructed, or has static methods
-called on it; everywhere a named argument is passed; and so on.
+There are several ways to use the analyzer to search through your Dart code. All
+of these pop up a search results window listing every use with handy links to
+take you right to the code. Note that for large codebases, additional results
+may be added to these results pages as the analyzer finds them. But once you see
+the last "Found X results" line, you know for sure you're seeing everything!
+
+* You can search for all references to the identifier under your cursor by
+  pressing `C-c C-f`. This will show you everywhere a method, getter, or setter
+  is called; everywhere a class is used as a type, constructed, or has static
+  methods called on it; everywhere a named argument is passed; and so on.
+
+* You can search for all member declarations with a given name by pressing `C-c
+  C-e`. This will list all declarations within classes that have the name, but
+  not any declarations at the top level.
+
+* If you want to search for top-level declarations instead, you can press `C-c
+  C-t`.
+
+* If you want to find all *references to* members with a given name, you can
+  press `C-c C-r`. This will show you everywhere a member with that name is
+  called, even if it's in a dynamic context and the analyzer can't figure out
+  what it's referring to.
