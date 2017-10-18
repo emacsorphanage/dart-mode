@@ -3,7 +3,7 @@
 ;; Author: Natalie Weizenbaum
 ;; URL: https://github.com/nex3/dart-mode
 ;; Version: 1.0.0
-;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23"))
+;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.11"))
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
@@ -93,6 +93,7 @@
 (require 'dash)
 (require 'flycheck)
 (require 'json)
+(require 's)
 
 
 ;;; Utility functions and macros
@@ -940,7 +941,8 @@ the callback for that request is given the json decoded response."
           (let ((json-lines
                  (-map (lambda (s)
                          (dart-info (concat "Received: " s))
-                         (json-read-from-string s))
+                         (-let [json-array-type 'list]
+                           (json-read-from-string s)))
                        (-filter (lambda (s)
                                   (not (or (null s) (string= "" s))))
                                 (-butlast buf-lines)))))
@@ -1061,8 +1063,7 @@ minibuffer."
        "analysis.getHover"
        `(("file" . ,filename) ("offset" . ,pos))
        (lambda (response)
-         (-when-let* ((hovers (dart--get response 'result 'hovers))
-                      (hover (if (eq (length hovers) 0) nil (elt hovers 0))))
+         (-when-let (hover (car (dart--get response 'result 'hovers)))
            (dart--json-let hover
                (offset
                 length
@@ -1197,9 +1198,8 @@ minibuffer."
      (lambda (response)
        (-when-let (result (dart--get response 'result))
          (dart--json-let result (files targets regions)
-           (unless (eq (length regions) 0)
-             (let* ((region (elt regions 0))
-                    (target-index (elt (dart--get region 'targets) 0))
+           (-when-let (region (car regions))
+             (let* ((target-index (car (dart--get region 'targets)))
                     (target (elt targets target-index))
 
                     (file-index (dart--get target 'fileIndex))
@@ -1301,34 +1301,34 @@ to add a header and otherwise prepare it for displaying results."
               (let ((buffer-read-only nil))
                 (save-excursion
                   (goto-char (point-max))
-                  (loop
-                   for result across results
-                   do (let ((location (dart--get result 'location))
-                            (path (dart--get result 'path))
-                            (start (point)))
-                        (dart--fontify-excursion '(compilation-info underline)
-                          (when (cl-some
-                                 (lambda (element)
-                                   (equal (dart--get element 'kind) "CONSTRUCTOR"))
-                                 path)
-                            (insert "new "))
+                  (dolist (result results)
+                    (let ((location (dart--get result 'location))
+                          (path (dart--get result 'path))
+                          (start (point)))
+                      (dart--fontify-excursion '(compilation-info underline)
+                        (when (cl-some
+                               (lambda (element)
+                                 (equal (dart--get element 'kind) "CONSTRUCTOR"))
+                               path)
+                          (insert "new "))
 
-                          (insert
-                           (loop for element across path
-                                 unless (member (dart--get element 'kind)
-                                                '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER"))
-                                 unless (string-empty-p (dart--get element 'name))
-                                 collect (dart--get element 'name) into names
-                                 finally return (mapconcat 'identity (reverse names) ".")))
+                        (insert
+                         (->> path
+                              (--remove (member (dart--get it 'kind)
+                                                '("COMPILATION_UNIT" "FILE" "LIBRARY" "PARAMETER")))
+                              (--map (dart--get it 'name))
+                              (-remove 'string-empty-p)
+                              nreverse
+                              (s-join ".")))
 
-                          (make-text-button
-                           start (point)
-                           'action (lambda (_) (dart--goto-location location))))
+                        (make-text-button
+                         start (point)
+                         'action (lambda (_) (dart--goto-location location))))
 
-                        (dart--json-let location (file (line startLine) (column startColumn))
-                          (insert " " file ":"
-                                  (dart--face-string line 'compilation-line-number) ":"
-                                  (dart--face-string column 'compilation-column-number) ?\n)))))
+                      (dart--json-let location (file (line startLine) (column startColumn))
+                        (insert " " file ":"
+                                (dart--face-string line 'compilation-line-number) ":"
+                                (dart--face-string column 'compilation-column-number) ?\n)))))
 
                 (setq total-results (+ total-results (length results)))
 
@@ -1465,7 +1465,7 @@ If FIRST is non-nil, this is the first completion event for this completion."
     (when first
       (setq dart--last-expand-index 0)
       (setq dart--last-expand-beginning (copy-marker (+ offset 1)))
-      (dart--use-expand-suggestion (+ offset 1) (+ offset length 1) (elt results 0)))
+      (dart--use-expand-suggestion (+ offset 1) (+ offset length 1) (car results)))
 
     (setq first nil)
     (setq dart--last-expand-results results)))
