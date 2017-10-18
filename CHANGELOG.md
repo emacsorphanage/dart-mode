@@ -1,5 +1,7 @@
 ## 1.0.0
 
+### Additions
+
 * Added a `dart-show-hover` command bound to `C-c ?` which displays information
   about the Dart API under the cursor.
 
@@ -23,5 +25,13 @@
   `dart-expand-parameters` command bound to `M-?` which inserts the parameter
   list for the chosen completion.
 
-* `dart-executable-path`'s default value is now set correctly even if the
-  executable named `dart` on the user's path is a symlink or a wrapper script.
+* Added a `dart-sdk-path` variable.
+
+### Replacements
+
+* `dart-executable-path` is now a function rather than a variable, so that it
+  updates when `dart-sdk-path` is updated.
+
+### Removals
+
+* The `dart-analysis-server-snapshot-path` variable has been removed.

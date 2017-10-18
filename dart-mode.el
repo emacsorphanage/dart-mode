@@ -253,6 +253,41 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
     (if (eq (nth 2 result) 0) (nth 0 result))))
 
 
+;;; General configuration
+
+(defcustom dart-sdk-path
+  ;; Use Platform.resolvedExecutable so that this logic works through symlinks
+  ;; and wrapper scripts.
+  (-when-let (dart (executable-find "dart"))
+    (dart--with-temp-file input
+      (with-temp-file input (insert "
+        import 'dart:io';
+
+        void main() {
+          print(Platform.resolvedExecutable);
+        }
+        "))
+      (-when-let (result (dart--try-process dart input))
+        (file-name-directory
+         (directory-file-name
+          (file-name-directory (string-trim result)))))))
+  "The absolute path to the root of the Dart SDK."
+  :group 'dart-mode
+  :type 'directory
+  :package-version '(dart-mode . "1.0.0"))
+
+(defun dart-executable-path ()
+  "The absolute path to the 'dart' executable.
+
+Returns nil if `dart-sdk-path' is nil."
+  (when dart-sdk-path
+    (concat dart-sdk-path
+            (file-name-as-directory "bin")
+            (if (memq system-type '(ms-dos windows-nt))
+                "dart.exe"
+              "dart"))))
+
+
 ;;; CC configuration
 
 (c-lang-defconst c-symbol-start
@@ -703,34 +738,13 @@ navigation, and more."
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
 
-(defcustom dart-executable-path
-  ;; Use Platform.resolvedExecutable so that this logic works through symlinks
-  ;; and wrapper scripts.
-  (-when-let (dart (executable-find "dart"))
-    (dart--with-temp-file input
-      (with-temp-file input (insert "
-        import 'dart:io';
-
-        void main() {
-          print(Platform.resolvedExecutable);
-        }
-        "))
-      (-when-let (result (dart--try-process dart input))
-        (string-trim result))))
-  "The absolute path to the 'dart' executable."
-  :group 'dart-mode
-  :type 'file
-  :package-version '(dart-mode . "1.0.0"))
-
-(defcustom dart-analysis-server-snapshot-path
-  (when dart-executable-path
-    (concat (file-name-directory dart-executable-path)
+(defun dart--analysis-server-snapshot-path ()
+  (when dart-sdk-path
+    (concat dart-sdk-path
+            (file-name-as-directory "bin")
             (file-name-as-directory "snapshots")
             "analysis_server.dart.snapshot"))
-  "The absolute path to the snapshot file that runs the Dart analysis server."
-  :group 'dart-mode
-  :type 'file
-  :package-version '(dart-mode . "0.12"))
+  "The absolute path to the snapshot file that runs the Dart analysis server.")
 
 (defvar dart-analysis-roots nil
   "The list of analysis roots that are known to the analysis server.
@@ -796,8 +810,8 @@ directory or the current file directory to the analysis roots."
          (dart-process
           (start-process "dart-analysis-server"
                          "*dart-analysis-server*"
-                         dart-executable-path
-                         dart-analysis-server-snapshot-path
+                         (dart-executable-path)
+                         (dart--analysis-server-snapshot-path)
                          "--no-error-notification")))
     (set-process-query-on-exit-flag dart-process nil)
     (setq dart--analysis-server
@@ -1808,8 +1822,7 @@ Key bindings:
   (c-common-init 'dart-mode)
   (c-set-style "dart")
   (when dart-enable-analysis-server
-    (if (or (null dart-executable-path)
-            (null dart-analysis-server-snapshot-path))
+    (if (null dart-sdk-path)
         (dart-log
          "Cannot find `dart' executable or Dart analysis server snapshot.")
       (dart--start-analysis-server-for-current-buffer)))

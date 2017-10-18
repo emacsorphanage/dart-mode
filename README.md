@@ -1,6 +1,7 @@
 `dart-mode` is a major mode for editing Dart files in Emacs.
 
 * [Installation](#installation)
+  * [General Configuration](#general-configuration)
 * [Dart Analyzer](#dart-analyzer)
   * [Error Checking](#error-checking)
   * [Seeing Information](#seeing-information)
@@ -18,6 +19,17 @@
     M-x package-refresh-contents [RET]
     M-x package-install [RET] dart-mode
     ```
+
+### General Configuration
+
+The `dart-sdk-path` variable can be set to tell Emacs where to find the Dart
+SDK. This is used to run the [Dart analysis server](#dart-analyzer) and the Dart
+formatter. By default, it's set by finding the `dart` executable on the system
+path.
+
+Note that user code that wants to run Dart scripts can use the
+`dart-executable-path` function to locate the `dart` executable itself in the
+SDK's `bin/` directory.
 
 ## Dart Analyzer
 
