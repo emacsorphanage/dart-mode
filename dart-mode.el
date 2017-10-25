@@ -2,7 +2,7 @@
 
 ;; Author: Natalie Weizenbaum
 ;; URL: https://github.com/nex3/dart-mode
-;; Version: 1.0.0
+;; Version: 1.0.1
 ;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.11"))
 ;; Keywords: language
 
@@ -131,6 +131,10 @@ true for positions before the start of the statement, but on its line."
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
+(defconst dart--identifier-re
+  "[a-zA-Z_$][a-zA-Z0-9_$]*"
+  "A regular expression that matches keywords.")
+
 (defun dart--forward-identifier ()
   "Moves the point forward through a Dart identifier."
   (when (looking-at dart--identifier-re)
@@ -215,13 +219,13 @@ Returns the value of the last form in BODY."
 Returns (STDOUT STDERR EXIT-CODE)."
   (dart--with-temp-file stderr-file
     (with-temp-buffer
-      (setq exit-code
-            (apply #'call-process
-                   executable nil (list t stderr-file) nil args))
-      (list
-       (buffer-string)
-       (dart--read-file stderr-file)
-       exit-code))))
+      (-let [exit-code
+             (apply #'call-process
+                    executable nil (list t stderr-file) nil args)]
+        (list
+         (buffer-string)
+         (dart--read-file stderr-file)
+         exit-code)))))
 
 (defun dart--try-process (executable &rest args)
   "Like `dart--run-process', but only returns stdout.
@@ -230,6 +234,12 @@ Any stderr is logged using dart-log. Returns nil if the exit code is non-0."
     (unless (string-empty-p (nth 1 result))
       (dart-log (format "Error running %S:\n%s" (cons executable args) (nth 1 result))))
     (if (eq (nth 2 result) 0) (nth 0 result))))
+
+(defvar dart--do-it-again-callback nil
+  "A callback to call when `dart-do-it-again' is invoked.
+
+Only set in `dart-popup-mode'.")
+(make-variable-buffer-local 'dart--do-it-again-callback)
 
 
 ;;; General configuration
@@ -719,12 +729,12 @@ navigation, and more."
   "The instance of the Dart analysis server we are communicating with.")
 
 (defun dart--analysis-server-snapshot-path ()
+  "The absolute path to the snapshot file that runs the Dart analysis server."
   (when dart-sdk-path
     (concat dart-sdk-path
             (file-name-as-directory "bin")
             (file-name-as-directory "snapshots")
-            "analysis_server.dart.snapshot"))
-  "The absolute path to the snapshot file that runs the Dart analysis server.")
+            "analysis_server.dart.snapshot")))
 
 (defvar dart-analysis-roots nil
   "The list of analysis roots that are known to the analysis server.
@@ -1104,10 +1114,6 @@ minibuffer."
    'words)
   "A regular expression that matches keywords.")
 
-(defconst dart--identifier-re
-  "[a-zA-Z_$][a-zA-Z0-9_$]*"
-  "A regular expression that matches keywords.")
-
 (defun dart--highlight-description (description)
   "Returns a highlighted copy of DESCRIPTION."
   (with-temp-buffer
@@ -1162,7 +1168,7 @@ minibuffer."
 
     ;; Cut off long dartdocs so that the full signature is always visible.
     (when truncate
-      (goto-line 11)
+      (forward-line 11)
       (delete-region (- (point) 1) (point-max)))
 
     (goto-char (point-min))
@@ -1515,7 +1521,6 @@ This will select the first parameter, if one exists."
     (setq dart--last-expand-parameters-index 0)    
     (dart--json-let (elt dart--last-expand-results dart--last-expand-index)
         ((parameter-names parameterNames)
-         (parameter-types parameterTypes)
          (argument-string defaultArgumentListString)
          (argument-ranges defaultArgumentListTextRanges))
       (unless parameter-names (return-from dart-expand-parameters))
@@ -1602,12 +1607,6 @@ Also removes this function from `post-command-hook'."
   (use-local-map dart-popup-mode-map))
 
 (put 'dart-popup-mode 'mode-class 'special)
-
-(defvar dart--do-it-again-callback nil
-  "A callback to call when `dart-do-it-again' is invoked.
-
-Only set in `dart-popup-mode'.")
-(make-variable-buffer-local 'dart--do-it-again-callback)
 
 (defvar dart-popup-mode-map (make-sparse-keymap)
   "Keymap used in Dart popup buffers.")
