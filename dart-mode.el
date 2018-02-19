@@ -675,6 +675,8 @@ whichever comes first."
 Each list item should be a regexp matching a single identifier."
   :group 'dart-mode)
 
+(c-override-default-keywords 'dart-font-lock-keywords)
+
 (defconst dart-font-lock-keywords-1 (c-lang-const c-matchers-1 dart)
   "Minimal highlighting for Dart mode.")
 
