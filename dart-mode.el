@@ -3,7 +3,7 @@
 ;; Author: Natalie Weizenbaum
 ;; URL: https://github.com/nex3/dart-mode
 ;; Version: 1.0.2
-;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.11"))
+;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.10"))
 ;; Keywords: language
 
 ;; Copyright (C) 2011 Google Inc.
