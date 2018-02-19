@@ -2,7 +2,7 @@
 
 ;; Author: Natalie Weizenbaum
 ;; URL: https://github.com/nex3/dart-mode
-;; Version: 1.0.2
+;; Version: 1.0.3
 ;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.10"))
 ;; Keywords: language
 
@@ -1036,10 +1036,10 @@ SUBSCRIPTION is an opaque object provided by
 The errors contained in RESPONSE from Dart analysis server run on BUFFER are
 reported to CALLBACK."
   (dart-info (format "Reporting to flycheck: %s" response))
-  (-when-let (errors (dart--get response 'result 'errors))
-    (-let [fly-errors (--map (dart--to-flycheck-err it buffer) errors)]
-      (dart-info (format "Parsed errors: %s" fly-errors))
-      (funcall callback 'finished fly-errors))))
+  (-let [fly-errors (--map (dart--to-flycheck-err it buffer)
+                           (dart--get response 'result 'errors))]
+    (dart-info (format "Parsed errors: %s" fly-errors))
+    (funcall callback 'finished fly-errors)))
 
 (defun dart--to-flycheck-err (err buffer)
   "Create a flycheck error from a dart ERR in BUFFER."
