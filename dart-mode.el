@@ -837,7 +837,9 @@ errors for the current contents of the buffer, not whatever is saved to disk."
    "analysis.updateContent"
    `((files .
             ((,buffer-file-name . ((type . "add")
-                                   (content . ,(buffer-string)))))))))
+                                   (content . ,(save-restriction
+                                                 (widen)
+                                                 (buffer-string))))))))))
 
 (defun dart-change-analysis-overlay
     (change-begin change-end change-before-length)
