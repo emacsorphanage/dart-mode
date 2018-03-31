@@ -1202,6 +1202,10 @@ minibuffer."
 (defun dart-goto ()
   (interactive)
   (-when-let (filename (buffer-file-name))
+    (if (fboundp 'xref-push-marker-stack)
+        (xref-push-marker-stack)
+      (with-no-warnings
+        (ring-insert find-tag-marker-ring (point-marker))))
     (dart--analysis-server-send
      "analysis.getNavigation"
      `(("file" . ,filename) ("offset" . ,(point)) ("length" . 0))
