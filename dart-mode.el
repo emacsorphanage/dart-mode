@@ -88,7 +88,8 @@
 (require 'cl-lib)
 (require 'compile)
 (require 'dash)
-(require 'flycheck)
+(ignore-errors
+ (require 'flycheck))
 (require 'json)
 (require 's)
 
@@ -787,7 +788,8 @@ directory or the current file directory to the analysis roots."
   (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
   (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
   (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
-  (add-to-list 'flycheck-checkers 'dart-analysis-server))
+  (when (featurep 'flycheck)
+   (add-to-list 'flycheck-checkers 'dart-analysis-server)))
 
 (defun dart-start-analysis-server ()
   "Start the Dart analysis server.
@@ -1030,10 +1032,12 @@ SUBSCRIPTION is an opaque object provided by
      (lambda (response)
        (dart--report-errors response buffer callback)))))
 
-(flycheck-define-generic-checker 'dart-analysis-server
+(when (featurep 'flycheck)
+ (flycheck-define-generic-checker
+  'dart-analysis-server
   "Checks Dart source code for errors using Dart analysis server."
   :start 'dart--flycheck-start
-  :modes '(dart-mode))
+  :modes '(dart-mode)))
 
 (defun dart--report-errors (response buffer callback)
   "Report the errors returned from the analysis server.
