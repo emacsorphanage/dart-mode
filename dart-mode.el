@@ -456,9 +456,6 @@ Returns nil if `dart-sdk-path' is nil."
 
 ;;; CC indentation support
 
-(defvar c-syntactic-context nil
-  "A dynamically-bound variable used by cc-mode.")
-
 (defun dart-block-offset (info)
   "Calculate the correct indentation for inline functions.
 
