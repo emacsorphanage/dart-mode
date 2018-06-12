@@ -316,7 +316,8 @@ Returns nil if `dart-sdk-path' is nil."
 (setq dart--built-in-types '("double" "int" "num" "string"))
 
 (setq dart--ecma-number-re
-      (rx (and (one-or-more digit)
+      (rx (and symbol-start
+               (one-or-more digit)
                (zero-or-one (and "." (one-or-more digit))))))
 
 (setq dart-font-lock-keyword-re  (regexp-opt dart--ecma-reserved-words 'words))
