@@ -1535,9 +1535,7 @@ Key bindings:
       (dart--start-analysis-server-for-current-buffer)))
 
   (add-hook (make-local-variable 'before-save-hook)
-            (lambda () (when dart-format-on-save (dart-format))))
-
-  )
+            (lambda () (when dart-format-on-save (dart-format)))))
 
 (provide 'dart-mode)
 
