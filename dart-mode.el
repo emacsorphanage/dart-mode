@@ -397,6 +397,32 @@ Returns nil if `dart-sdk-path' is nil."
         (goto-char end))
       (throw 'result nil))))
 
+(defun dart--declared-identifier-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx
+               (and (group (or (or "const" "final"
+                                   "bool" "double" "dynamic" "int" "num" "void"
+                                   "var"
+                                   "get" "set")
+                               (eval (dart--identifier 'upper)))
+                           (zero-or-one ?>))
+                    (one-or-more (or space ?\C-j))
+                    (group (eval (dart--identifier 'lower)))))
+              limit t)
+        (setq beg (match-beginning 2))
+        (setq end (match-end 2))
+        (when (not (member (match-string 2)
+                           '("bool" "double" "dynamic" "int" "num" "void"
+                             "var"
+                             "get" "set")))
+          (set-match-data (list beg end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char (match-end 1)))
+      (throw 'result nil))))
+
 (setq dart-font-lock-defaults
       `((,dart--async-keywords-re
          ,(regexp-opt dart--keywords 'words)
@@ -407,7 +433,8 @@ Returns nil if `dart-sdk-path' is nil."
          (,dart--metadata-re                   . font-lock-constant-face)
          (,(regexp-opt dart--types 'words)     . font-lock-type-face)
          (,dart--types-re                      . font-lock-type-face)
-         (dart--function-declaration-func      . font-lock-function-name-face))))
+         (dart--function-declaration-func      . font-lock-function-name-face)
+         (dart--declared-identifier-func       . font-lock-variable-name-face))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
