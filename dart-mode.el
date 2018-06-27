@@ -329,35 +329,33 @@ Returns nil if `dart-sdk-path' is nil."
 
 ;;; Additional fontification support
 
-(setq dart--ecma-built-in-identifier
+(setq dart--builtins
+      ;; ECMA 408; Section: Identifier Reference
+      ;; "Built-in identifiers"
       '("abstract" "as" "deferred" "dynamic" "export" "external"
         "factory" "get" "implements" "import" "library" "operator"
         "part" "set" "static" "typedef"))
 
-(setq dart--ecma-reserved-words
+(setq dart--keywords
+      ;; ECMA 408; Section: Reserved Words
       '("assert" "break" "case" "catch" "class" "const" "continue"
         "default" "do" "else" "enum" "extends" "false" "final"
         "finally" "for" "if" "in" "is" "new" "null" "rethrow" "return"
         "super" "switch" "this" "throw" "true" "try" "var" "void"
         "while" "with"))
 
-(setq dart--built-in-types '("double" "int" "num" "string"))
+(setq dart--types '("double" "int" "num" "string"))
 
-(setq dart--ecma-number-re
+(setq dart--number-re
       (rx (and symbol-start
                (one-or-more digit)
                (zero-or-one (and "." (one-or-more digit))))))
 
-(setq dart-font-lock-keyword-re  (regexp-opt dart--ecma-reserved-words 'words))
-(setq dart-font-lock-builtin-re  (regexp-opt dart--ecma-built-in-identifier 'words))
-(setq dart-font-lock-type-re     (regexp-opt dart--built-in-types 'words))
-(setq dart-font-lock-constant-re dart--ecma-number-re)
-
 (setq dart-font-lock-defaults
-      `(((,dart-font-lock-keyword-re  . font-lock-keyword-face)
-         (,dart-font-lock-builtin-re  . font-lock-builtin-face)
-         (,dart-font-lock-type-re     . font-lock-type-face)
-         (,dart-font-lock-constant-re . font-lock-constant-face))))
+      `((,(regexp-opt dart--keywords 'words)
+         (,(regexp-opt dart--builtins 'words) . font-lock-builtin-face)
+         (,dart--number-re                    . font-lock-constant-face)
+         (,(regexp-opt dart--types 'words)    . font-lock-type-face))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
