@@ -365,23 +365,58 @@ Returns nil if `dart-sdk-path' is nil."
 (setq dart--keywords
       ;; ECMA 408; Section: Reserved Words
       '("assert" "break" "case" "catch" "class" "const" "continue"
-        "default" "do" "else" "enum" "extends" "false" "final"
-        "finally" "for" "if" "in" "is" "new" "null" "rethrow" "return"
-        "super" "switch" "this" "throw" "true" "try" "var" "void"
-        "while" "with"))
+        "default" "do" "else" "enum" "extends" "final" "finally" "for"
+        "if" "in" "is" "new" "rethrow" "return" "super" "switch"
+        "this" "throw" "try" "var" "while" "with"))
 
-(setq dart--types '("double" "int" "num" "string"))
+(setq dart--types '("bool" "double" "dynamic" "int" "num" "void"))
 
-(setq dart--number-re
-      (rx (and symbol-start
-               (one-or-more digit)
-               (zero-or-one (and "." (one-or-more digit))))))
+(setq dart--constants '("false" "null" "true"))
+
+(setq dart--async-keywords-re (rx word-start
+                                  (or "async" "await" "sync" "yield")
+                                  word-end
+                                  (zero-or-one ?*)))
+
+(setq dart--number-re (rx symbol-start
+                          (zero-or-one ?-)
+                          (group (or (and (one-or-more digit)
+                                          (zero-or-one
+                                           (and ?. (one-or-more digit))))
+                                     (and ?. (one-or-more digit)))
+                                 (zero-or-one (and (or ?e ?E)
+                                                   (zero-or-one (or ?+ ?-))
+                                                   (one-or-more digit))))))
+
+(setq dart--hex-number-re (rx symbol-start
+                              (zero-or-one ?-)
+                              (group (or "0x" "0X")
+                                     (one-or-more (any (?a . ?f)
+                                                       (?A . ?F)
+                                                       digit)))))
+
+(defun dart--identifier (&optional case)
+  `(and (zero-or-one (or ?$ ?_))
+        bow
+        ,(if case
+             case
+           'alnum)
+        (zero-or-more (or ?$ ?_ alnum))))
+
+(setq dart--metadata-re (rx ?@ (eval (dart--identifier))))
+
+(setq dart--types-re (rx (eval (dart--identifier 'upper))))
 
 (setq dart-font-lock-defaults
-      `((,(regexp-opt dart--keywords 'words)
-         (,(regexp-opt dart--builtins 'words) . font-lock-builtin-face)
-         (,dart--number-re                    . font-lock-constant-face)
-         (,(regexp-opt dart--types 'words)    . font-lock-type-face))))
+      `((,dart--async-keywords-re
+         ,(regexp-opt dart--keywords 'words)
+         (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
+         (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
+         (,dart--hex-number-re                 . (1 font-lock-constant-face))
+         (,dart--number-re                     . (1 font-lock-constant-face))
+         (,dart--metadata-re                   . font-lock-constant-face)
+         (,(regexp-opt dart--types 'words)     . font-lock-type-face)
+         (,dart--types-re                      . font-lock-type-face))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
