@@ -453,6 +453,52 @@ Returns nil if `dart-sdk-path' is nil."
         (goto-char (match-end 1)))
       (throw 'result nil))))
 
+(defun dart--in-parenthesized-expression-or-formal-parameter-list-p ()
+  (save-excursion
+    (catch 'result
+      (condition-case nil
+          (backward-up-list)
+        (scan-error (throw 'result nil)))
+      (when (member (char-after (point)) '(?\[ ?\{))
+        (condition-case nil
+            (backward-up-list)
+          (scan-error (throw 'result nil))))
+      (throw 'result (= (char-after (point)) ?\()))))
+
+(defun dart--declared-identifier-anchor-func (limit)
+  (catch 'result
+    (let (data)
+      (while (dart--declared-identifier-func limit)
+        (setq data (match-data))
+        (unless (dart--in-parenthesized-expression-or-formal-parameter-list-p)
+          (set-match-data data)
+          (goto-char (match-end 0))
+          (throw 'result t))
+        (goto-char (match-end 0)))
+      (throw 'result nil))))
+
+(defun dart--declared-identifier-next-func (limit)
+  (catch 'result
+    (let ((depth (car (syntax-ppss))))
+      (while t
+        (cond
+         ((or (= (char-after (point)) ?\x3b) ; ?;
+              (< (car (syntax-ppss)) depth))
+          (throw 'result nil))
+         ((and (= (char-after (point)) ?\x2c) ; ?,
+               (= (car (syntax-ppss)) depth))
+          (if (looking-at (rx ?\x2c
+                              (one-or-more space)
+                              (group (eval (dart--identifier 'lower)))))
+              (progn (set-match-data (list (match-beginning 1)
+                                           (match-end 1)))
+                     (goto-char (match-end 0))
+                     (throw 'result t))
+            (throw 'result nil)))
+         ((< (point) (point-max))
+          (forward-char))
+         (t (throw 'result nil)))))))
+
 (setq dart-font-lock-defaults
       `((,dart--async-keywords-re
          ,(regexp-opt dart--keywords 'words)
@@ -464,7 +510,12 @@ Returns nil if `dart-sdk-path' is nil."
          (,(regexp-opt dart--types 'words)     . font-lock-type-face)
          (,dart--types-re                      . font-lock-type-face)
          (dart--function-declaration-func      . font-lock-function-name-face)
-         (dart--declared-identifier-func       . font-lock-variable-name-face))))
+         (dart--declared-identifier-func       . font-lock-variable-name-face)
+         (dart--declared-identifier-anchor-func
+          . (dart--declared-identifier-next-func
+             nil
+             nil
+             (0 font-lock-variable-name-face))))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
