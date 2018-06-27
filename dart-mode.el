@@ -407,6 +407,25 @@ Returns nil if `dart-sdk-path' is nil."
 
 (setq dart--types-re (rx (eval (dart--identifier 'upper))))
 
+(defun dart--function-declaration-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+        (setq beg (match-beginning 1))
+        (setq end (match-end 1))
+        (condition-case nil
+            (progn
+              (up-list)
+              (when (looking-at (rx (one-or-more space)
+                                    (or "async" "async*" "sync*" "{" "=>")))
+                (set-match-data (list beg end))
+                (goto-char end)
+                (throw 'result t)))
+          (scan-error nil))
+        (goto-char end))
+      (throw 'result nil))))
+
 (setq dart-font-lock-defaults
       `((,dart--async-keywords-re
          ,(regexp-opt dart--keywords 'words)
@@ -416,7 +435,8 @@ Returns nil if `dart-sdk-path' is nil."
          (,dart--number-re                     . (1 font-lock-constant-face))
          (,dart--metadata-re                   . font-lock-constant-face)
          (,(regexp-opt dart--types 'words)     . font-lock-type-face)
-         (,dart--types-re                      . font-lock-type-face))))
+         (,dart--types-re                      . font-lock-type-face)
+         (dart--function-declaration-func      . font-lock-function-name-face))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
