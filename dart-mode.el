@@ -312,17 +312,45 @@ Returns nil if `dart-sdk-path' is nil."
 
 ;;; Indentation support
 
-(defun dart-indent-line-function ()
-  (let (pt)
-    (save-excursion
-      (back-to-indentation)
-      (let ((depth (car (syntax-ppss))))
-        (if (= (char-syntax (char-after)) ?\))
+(defun dart-depth-of-line ()
+  (save-excursion
+    (back-to-indentation)
+    (let ((depth (car (syntax-ppss))))
+      (when (and (char-after)
+                 (= (char-syntax (char-after)) ?\)))
+        (while (and (char-after)
+                    (/= (char-syntax (char-after)) ?\()
+                    (/= (char-after) ?\C-j))
+          (when (= (char-syntax (char-after)) ?\))
             (setq depth (1- depth)))
-        (indent-line-to (* depth tab-width)))
-      (setq pt (point)))
-    (when (< (point) pt)
-        (back-to-indentation))))
+          (forward-char)))
+      depth)))
+
+(defun dart-indent-line-function ()
+  (let ((curr-depth (dart-depth-of-line))
+        prev-line
+        prev-depth
+        prev-indent)
+    (save-excursion
+      (beginning-of-line)
+      (catch 'done
+        (while t
+          (when (= (point) 1)
+            (throw 'done t))
+          (previous-line)
+          (unless (looking-at (rx (and bol (zero-or-more space) eol)))
+            (setq prev-line t)
+            (setq prev-indent (current-indentation))
+            (setq prev-depth (dart-depth-of-line))
+            (throw 'done t)))))
+    (save-excursion
+      (if prev-line
+          (indent-line-to (max 0 (+ prev-indent
+                                    (* (- curr-depth prev-depth)
+                                       tab-width))))
+        (indent-line-to 0)))
+    (when (< (current-column) (current-indentation))
+      (back-to-indentation))))
 
 
 ;;; Additional fontification support
