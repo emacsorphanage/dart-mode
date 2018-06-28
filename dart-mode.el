@@ -286,50 +286,206 @@ Returns nil if `dart-sdk-path' is nil."
 
 ;;; CC indentation support
 
-(defun dart-indent-line-function ()
-  (let (pt)
-    (save-excursion
-      (back-to-indentation)
-      (let ((depth (car (syntax-ppss))))
-        (if (= (char-syntax (char-after)) ?\))
+(defun dart-depth-of-line ()
+  (save-excursion
+    (back-to-indentation)
+    (let ((depth (car (syntax-ppss))))
+      (when (and (char-after)
+                 (= (char-syntax (char-after)) ?\x29))
+        (while (and (char-after)
+                    (/= (char-syntax (char-after)) ?\x28)
+                    (/= (char-after) ?\C-j))
+          (when (= (char-syntax (char-after)) ?\x29)
             (setq depth (1- depth)))
-        (indent-line-to (* depth tab-width)))
-      (setq pt (point)))
-    (when (< (point) pt)
-        (back-to-indentation))))
+          (forward-char)))
+      depth)))
+
+(defun dart-indent-line-function ()
+  (let ((curr-depth (dart-depth-of-line))
+        prev-line
+        prev-depth
+        prev-indent)
+    (save-excursion
+      (beginning-of-line)
+      (catch 'done
+        (while t
+          (when (= (point) 1)
+            (throw 'done t))
+          (previous-line)
+          (unless (looking-at (rx (and bol (zero-or-more space) eol)))
+            (setq prev-line t)
+            (setq prev-indent (current-indentation))
+            (setq prev-depth (dart-depth-of-line))
+            (throw 'done t)))))
+    (save-excursion
+      (if prev-line
+          (indent-line-to (max 0 (+ prev-indent
+                                    (* (- curr-depth prev-depth)
+                                       tab-width))))
+        (indent-line-to 0)))
+    (when (< (current-column) (current-indentation))
+      (back-to-indentation))))
 
 
 ;;; Additional fontification support
 
-(setq dart--ecma-built-in-identifier
+(setq dart--builtins
+      ;; ECMA 408; Section: Identifier Reference
+      ;; "Built-in identifiers"
       '("abstract" "as" "deferred" "dynamic" "export" "external"
         "factory" "get" "implements" "import" "library" "operator"
         "part" "set" "static" "typedef"))
 
-(setq dart--ecma-reserved-words
+(setq dart--keywords
+      ;; ECMA 408; Section: Reserved Words
       '("assert" "break" "case" "catch" "class" "const" "continue"
-        "default" "do" "else" "enum" "extends" "false" "final"
-        "finally" "for" "if" "in" "is" "new" "null" "rethrow" "return"
-        "super" "switch" "this" "throw" "true" "try" "var" "void"
-        "while" "with"))
+        "default" "do" "else" "enum" "extends" "final" "finally" "for"
+        "if" "in" "is" "new" "rethrow" "return" "super" "switch"
+        "this" "throw" "try" "var" "while" "with"))
 
-(setq dart--built-in-types '("double" "int" "num" "string"))
+(setq dart--types '("bool" "double" "dynamic" "int" "num" "void"))
 
-(setq dart--ecma-number-re
-      (rx (and symbol-start
-               (one-or-more digit)
-               (zero-or-one (and "." (one-or-more digit))))))
+(setq dart--constants '("false" "null" "true"))
 
-(setq dart-font-lock-keyword-re  (regexp-opt dart--ecma-reserved-words 'words))
-(setq dart-font-lock-builtin-re  (regexp-opt dart--ecma-built-in-identifier 'words))
-(setq dart-font-lock-type-re     (regexp-opt dart--built-in-types 'words))
-(setq dart-font-lock-constant-re dart--ecma-number-re)
+(setq dart--async-keywords-re (rx word-start
+                                  (or "async" "await" "sync" "yield")
+                                  word-end
+                                  (zero-or-one ?*)))
+
+(setq dart--number-re (rx symbol-start
+                          (zero-or-one ?-)
+                          (group (or (and (one-or-more digit)
+                                          (zero-or-one
+                                           (and ?. (one-or-more digit))))
+                                     (and ?. (one-or-more digit)))
+                                 (zero-or-one (and (or ?e ?E)
+                                                   (zero-or-one (or ?+ ?-))
+                                                   (one-or-more digit))))))
+
+(setq dart--hex-number-re (rx symbol-start
+                              (zero-or-one ?-)
+                              (group (or "0x" "0X")
+                                     (one-or-more (any (?a . ?f)
+                                                       (?A . ?F)
+                                                       digit)))))
+
+(defun dart--identifier (&optional case)
+  `(and (zero-or-one (or ?$ ?_))
+        bow
+        ,(if case
+             case
+           'alnum)
+        (zero-or-more (or ?$ ?_ alnum))))
+
+(setq dart--metadata-re (rx ?@ (eval (dart--identifier))))
+
+(setq dart--types-re (rx (eval (dart--identifier 'upper))))
+
+(defun dart--function-declaration-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx (group (eval (dart--identifier 'lower))) ?\x28) limit t)
+        (setq beg (match-beginning 1))
+        (setq end (match-end 1))
+        (up-list)
+        (when (looking-at (rx (one-or-more space)
+                              (or "async" "async*" "sync*" "{" "=>")))
+          (set-match-data (list beg end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char end))
+      (throw 'result nil))))
+
+(defun dart--declared-identifier-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx
+               (and (group (or (or "const" "final"
+                                   "bool" "double" "dynamic" "int" "num" "void"
+                                   "var"
+                                   "get" "set")
+                               (eval (dart--identifier 'upper)))
+                           (zero-or-one ?>))
+                    (one-or-more (or space ?\C-j))
+                    (group (eval (dart--identifier 'lower)))))
+              limit t)
+        (setq beg (match-beginning 2))
+        (setq end (match-end 2))
+        (when (not (member (match-string 2)
+                           '("bool" "double" "dynamic" "int" "num" "void"
+                             "var"
+                             "get" "set")))
+          (set-match-data (list beg end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char (match-end 1)))
+      (throw 'result nil))))
+
+(defun dart--in-parenthesized-expression-or-formal-parameter-list-p ()
+  (save-excursion
+    (catch 'result
+      (condition-case nil
+          (backward-up-list)
+        (scan-error (throw 'result nil)))
+      (when (member (char-after (point)) '(?\x5b ?\x7b)) ; ?[ ?{
+        (condition-case nil
+            (backward-up-list)
+          (scan-error (throw 'result nil))))
+      (throw 'result (= (char-after (point)) ?\x28))))) ; ?\(
+
+(defun dart--declared-identifier-anchor-func (limit)
+  (catch 'result
+    (let (data)
+      (while (dart--declared-identifier-func limit)
+        (setq data (match-data))
+        (unless (dart--in-parenthesized-expression-or-formal-parameter-list-p)
+          (set-match-data data)
+          (goto-char (match-end 0))
+          (throw 'result t))
+        (goto-char (match-end 0)))
+      (throw 'result nil))))
+
+(defun dart--declared-identifier-next-func (limit)
+  (catch 'result
+    (let ((depth (car (syntax-ppss))))
+      (while t
+        (cond
+         ((or (= (char-after (point)) ?\x3b) ; ?;
+              (< (car (syntax-ppss)) depth))
+          (throw 'result nil))
+         ((and (= (char-after (point)) ?\x2c) ; ?,
+               (= (car (syntax-ppss)) depth))
+          (if (looking-at (rx ?\x2c
+                              (one-or-more space)
+                              (group (eval (dart--identifier 'lower)))))
+              (progn (set-match-data (list (match-beginning 1)
+                                           (match-end 1)))
+                     (goto-char (match-end 0))
+                     (throw 'result t))
+            (throw 'result nil)))
+         ((< (point) (point-max))
+          (forward-char))
+         (t (throw 'result nil)))))))
 
 (setq dart-font-lock-defaults
-      `(((,dart-font-lock-keyword-re  . font-lock-keyword-face)
-         (,dart-font-lock-builtin-re  . font-lock-builtin-face)
-         (,dart-font-lock-type-re     . font-lock-type-face)
-         (,dart-font-lock-constant-re . font-lock-constant-face))))
+      `((,dart--async-keywords-re
+         ,(regexp-opt dart--keywords 'words)
+         (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
+         (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
+         (,dart--hex-number-re                 . (1 font-lock-constant-face))
+         (,dart--number-re                     . (1 font-lock-constant-face))
+         (,dart--metadata-re                   . font-lock-constant-face)
+         (,(regexp-opt dart--types 'words)     . font-lock-type-face)
+         (,dart--types-re                      . font-lock-type-face)
+         (dart--function-declaration-func      . font-lock-function-name-face)
+         (dart--declared-identifier-func       . font-lock-variable-name-face)
+         (dart--declared-identifier-anchor-func
+          . (dart--declared-identifier-next-func
+             nil
+             nil
+             (0 font-lock-variable-name-face))))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
@@ -1517,10 +1673,10 @@ initialization.
 
 Key bindings:
 \\{dart-mode-map}"
-  (modify-syntax-entry ?/ "< 12")
+  (modify-syntax-entry ?/ "_ 12")
   (modify-syntax-entry ?\n ">")
   (modify-syntax-entry ?\' "\"")
-  (set (make-local-variable 'electric-indent-chars) '(?\n ?\) ?] ?}))
+  (setq-local electric-indent-chars '(?\n ?\x28 ?\x5d ?\x7d))
   (setq comment-start "//")
   (setq comment-end "")
   (setq fill-column 80)
