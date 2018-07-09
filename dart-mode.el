@@ -396,11 +396,11 @@ Returns nil if `dart-sdk-path' is nil."
                                                        digit)))))
 
 (defun dart--identifier (&optional case)
-  `(and (zero-or-one (or ?$ ?_))
-        bow
+  `(and (or word-start symbol-start)
+        (zero-or-more (any ?$ ?_))
         ,(if case
              case
-           'alnum)
+           'alpha)
         (zero-or-more (or ?$ ?_ alnum))))
 
 (setq dart--metadata-re (rx ?@ (eval (dart--identifier))))
