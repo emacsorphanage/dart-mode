@@ -407,6 +407,65 @@ Returns nil if `dart-sdk-path' is nil."
 
 (setq dart--types-re (rx (eval (dart--identifier 'upper))))
 
+(defun dart--string-interpolation-id-func (limit)
+  (catch 'result
+    (let (data end syntax)
+      (while (re-search-forward (rx (group ?$)
+                                    (group (zero-or-more ?_)
+                                           lower
+                                           (zero-or-more (or ?_ alnum))))
+                                limit t)
+        (setq data (match-data))
+        (setq end (match-end 2))
+        (setq syntax (syntax-ppss))
+        (when (and (nth 3 syntax)
+                   (or (= (nth 8 syntax) 1)
+                       (not (eq (char-before (nth 8 syntax)) ?r))))
+          (set-match-data data)
+          (goto-char end)
+          (throw 'result t))
+        (when end
+          (goto-char end)))
+      (throw 'result nil))))
+
+(defun dart--string-interpolation-exp-func (limit)
+  ;; While there are still ${ in non-raw strings to be found.
+  ;; While point has positive depth and is in string.
+  ;; Move forward.
+  ;; If depth hits zero, return match.
+  ;; If we leave string, search again.
+  ;; When we run out of search results, return nil.
+  (catch 'result
+    (let (sigil beg open close end syntax depth)
+      (while (and (search-forward "${" limit t)
+                  (save-excursion
+                    (and (nth 3 (syntax-ppss))
+                         (not (eq (char-before (nth 8 (syntax-ppss))) ?r)))))
+        (setq open (point))
+        (setq beg (- open 1))
+        (setq sigil (- open 2))
+        (setq depth 1)
+        (while (and (> depth 0)
+                    (< (point) limit)
+                    (nth 3 (syntax-ppss)))
+          (setq depth (+ depth (pcase (char-after)
+                                 (?\{ 1)
+                                 (?\} -1)
+                                 (_ 0))))
+          (forward-char))
+        (setq end (point))
+        (when (= depth 0)
+          (setq close (1- end))
+          (set-match-data (list sigil end
+                                sigil beg
+                                beg open
+                                open close
+                                close end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char end))
+      (throw 'result nil))))
+
 (defun dart--function-declaration-func (limit)
   (catch 'result
     (let (beg end)
@@ -515,7 +574,9 @@ Returns nil if `dart-sdk-path' is nil."
           . (dart--declared-identifier-next-func
              nil
              nil
-             (0 font-lock-variable-name-face))))))
+             (0 font-lock-variable-name-face)))
+         (dart--string-interpolation-id-func   (0 font-lock-variable-name-face t))
+         (dart--string-interpolation-exp-func  (0 font-lock-variable-name-face t)))))
 
 (setq dart-string-delimiter (rx (and
                             ;; Match even number of backslashes.
