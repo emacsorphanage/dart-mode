@@ -648,6 +648,113 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
       ;; it.
       (setq ad-return-value (c-parse-state-1)))))
 
+(defvar go-dangling-cache)
+
+(defun dart--reset-dangling-cache-before-change (&optional _beg _end)
+  "Reset `dart-dangling-cache'.
+
+This is intended to be called from `before-change-functions'."
+  (setq dart-dangling-cache (make-hash-table :test 'eql)))
+
+(defun dart-find-start-of-current-statement ()
+  (back-to-indentation)
+  (let ((point (point)))
+    (if (progn
+          (dart-backward-irrelevant)
+          (/= (char-before (point)) ?\x3b))
+        (dart-find-start-of-current-statement)
+      (goto-char point))))
+
+(defun dart-previous-line-has-dangling-op-p ()
+  "Return non-nil if the current line is a continuation line."
+  (let* ((cur-line (line-number-at-pos))
+         (val (gethash cur-line dart-dangling-cache 'nope)))
+    (if (equal val 'nope)
+        (save-excursion
+          (beginning-of-line)
+          (dart-backward-irrelevant t)
+          (message "%S" (char-before (point)))
+          (setq val (not (member (char-before (point)) '(?\x3b \?x7d))))
+          ;; (setq val (looking-back dart-dangling-operators-regexp
+          ;;                         (- (point) dart--max-dangling-operator-length)))
+          (puthash cur-line val dart-dangling-cache)))
+          ;; (if (not (dart--buffer-narrowed-p))
+          ;;     (puthash cur-line val dart-dangling-cache))))
+    val))
+
+(defun dart-backward-irrelevant (&optional stop-at-string)
+  (interactive)
+  (let (pos (start-pos (point)))
+    (skip-chars-backward "\n\s\t")
+    (cond ((or (nth 3 (syntax-ppss))
+               (nth 4 (syntax-ppss)))
+           (goto-char (nth 8 (syntax-ppss))))
+          ((looking-back "\\*/" (line-beginning-position))
+           (backward-char))
+          ((/= start-pos (point))
+           (dart-backward-irrelevant stop-at-string))
+          (t
+           (/= start-pos (point))))))
+
+(define-key dart-mode-map (kbd "C-c C-b") 'dart-backward-irrelevant)
+
+(defun dart-guess-basic-syntax ()
+  (catch 'result
+    (let (c-syntactic-context syntactic-relpos)
+      (save-excursion
+        (back-to-indentation)
+        (when (nth 3 (syntax-ppss))
+          (throw 'result `((string ,(nth 8 (syntax-ppss))))))
+        (when (nth 4 (syntax-ppss))
+          (throw 'result `((comment ,(nth 8 (syntax-ppss))))))
+        (when (save-excursion
+                (and (progn
+                       (previous-line)
+                       (end-of-line)
+                       (= (char-before (point)) ?\x3b))
+                     (progn
+                       (previous-line)
+                       (end-of-line)
+                       (= (char-before (point)) ?\x3b))))
+          (throw 'result `((statement))))
+        (when (= (car (syntax-after (point))) 5)
+          (while (looking-at (rx (zero-or-one (or ?, ?\x3b))
+                                 (syntax close-parenthesis)))
+            (goto-char (match-end 0)))
+          (backward-char)
+          (throw 'result `((closing ,(cadr (syntax-ppss))))))
+        (when (> (car (syntax-ppss)) 0)
+          (throw 'result `((brace ,(cadr (syntax-ppss))))))
+        ))))
+
+(defun dart-show-syntactic-information ()
+  "Show syntactic information for current line."
+  ;; This is completely stolen from cc-mode, to debug our
+  ;; `dart-guess-basic-syntax', in an attempt to implement an
+  ;; indentation function, "from scratch."
+  (interactive)
+  (let* ((c-parsing-error nil)
+	 (syntax (dart-guess-basic-syntax)))
+    (let (elem pos ols)
+      (message "Syntactic analysis: %s" syntax)
+      (unwind-protect
+          (progn
+            (while syntax
+              (setq elem (pop syntax))
+              (when (setq pos (c-langelem-pos elem))
+                (push (c-put-overlay pos (1+ pos)
+                                     'face 'highlight)
+                      ols))
+              (when (setq pos (c-langelem-2nd-pos elem))
+                (push (c-put-overlay pos (1+ pos)
+                                     'face 'secondary-selection)
+                      ols)))
+            (sit-for 10))
+        (while ols
+          (c-delete-overlay (pop ols))))))
+  (c-keep-region-active))
+
+(define-key dart-mode-map (kbd "C-c C-s") 'dart-show-syntactic-information)
 
 ;;; Additional fontification support
 
