@@ -308,9 +308,39 @@ Returns nil if `dart-sdk-path' is nil."
 (define-key dart-mode-map (kbd "C-c C-o") 'dart-format)
 (define-key dart-mode-map (kbd "M-/") 'dart-expand)
 (define-key dart-mode-map (kbd "M-?") 'dart-expand-parameters)
+(define-key dart-mode-map (kbd "<backtab>") 'dart-dedent-simple)
+(define-key dart-mode-map (kbd "C-c C-i") 'indent-according-to-mode)
 
 
 ;;; Indentation support
+
+(defcustom dart-indent-trigger-commands
+  '(indent-for-tab-command yas-expand yas/expand dart-dedent-simple)
+  "Commands that might trigger a `dart-indent-line' call."
+  :type '(repeat symbol)
+  :group 'dart)
+
+(defun dart-indent-line-function ()
+  "`indent-line-function' for Dart mode.
+When the variable `last-command' is equal to one of the symbols
+inside `dart-indent-trigger-commands' it cycles possible
+indentation levels from right to left."
+  (if (and (memq this-command dart-indent-trigger-commands)
+           (eq last-command this-command))
+      (dart-indent-simple)
+    (dart-indent-line-relative)))
+
+(defun dart-indent-simple (&optional backwards)
+  (interactive)
+  (save-excursion
+    (indent-line-to
+     (max 0 (indent-next-tab-stop (current-indentation) backwards))))
+  (when (< (current-column) (current-indentation))
+    (back-to-indentation)))
+
+(defun dart-dedent-simple ()
+  (interactive)
+  (dart-indent-simple 'backwards))
 
 (defun dart-depth-of-line ()
   (save-excursion
@@ -326,7 +356,7 @@ Returns nil if `dart-sdk-path' is nil."
           (forward-char)))
       depth)))
 
-(defun dart-indent-line-function ()
+(defun dart-indent-line-relative ()
   (let ((curr-depth (dart-depth-of-line))
         prev-line
         prev-depth
