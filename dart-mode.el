@@ -131,6 +131,32 @@ true for positions before the start of the statement, but on its line."
          ((?} ?\;) t)
          ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
 
+(defun dart--delete-whole-line (&optional arg)
+  "Delete the current line without putting it in the `kill-ring'.
+Derived from function `kill-whole-line'.  ARG is defined as for that
+function."
+  (setq arg (or arg 1))
+  (if (and (> arg 0)
+           (eobp)
+           (save-excursion (forward-visible-line 0) (eobp)))
+      (signal 'end-of-buffer nil))
+  (if (and (< arg 0)
+           (bobp)
+           (save-excursion (end-of-visible-line) (bobp)))
+      (signal 'beginning-of-buffer nil))
+  (cond ((zerop arg)
+         (delete-region (progn (forward-visible-line 0) (point))
+                        (progn (end-of-visible-line) (point))))
+        ((< arg 0)
+         (delete-region (progn (end-of-visible-line) (point))
+                        (progn (forward-visible-line (1+ arg))
+                               (unless (bobp)
+                                 (backward-char))
+                               (point))))
+        (t
+         (delete-region (progn (forward-visible-line 0) (point))
+                        (progn (forward-visible-line arg) (point))))))
+
 (defconst dart--identifier-re
   "[a-zA-Z_$][a-zA-Z0-9_$]*"
   "A regular expression that matches keywords.")
@@ -1794,7 +1820,7 @@ this can be overridden by customizing
                 (goto-char (point-min))
                 (forward-line (- from line-offset 1))
                 (cl-incf line-offset len)
-                (let (kill-ring) (kill-whole-line len))))
+                (dart--delete-whole-line len)))
 
              (t
               (error "Invalid RCS patch or internal error in dart--apply-rcs-patch")))))))))
