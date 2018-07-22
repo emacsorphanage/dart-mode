@@ -94,6 +94,7 @@
 (require 'json)
 (require 's)
 
+(add-to-list 'c-require-final-newline '(dart-mode . t))
 
 ;;; Utility functions and macros
 
