@@ -698,6 +698,9 @@ This is intended to be called from `before-change-functions'."
 
 (define-key dart-mode-map (kbd "C-c C-b") 'dart-backward-irrelevant)
 
+(defun dart-comment-or-string-p ()
+  (nth 8 (syntax-ppss)))
+
 (defun dart-guess-basic-syntax ()
   (catch 'result
     (let (c-syntactic-context syntactic-relpos)
@@ -741,18 +744,42 @@ This is intended to be called from `before-change-functions'."
           (progn
             (while syntax
               (setq elem (pop syntax))
-              (when (setq pos (c-langelem-pos elem))
+              (when (setq pos (dart-langelem-pos elem))
                 (push (c-put-overlay pos (1+ pos)
                                      'face 'highlight)
                       ols))
-              (when (setq pos (c-langelem-2nd-pos elem))
+              (when (setq pos (dart-langelem-2nd-pos elem))
                 (push (c-put-overlay pos (1+ pos)
                                      'face 'secondary-selection)
                       ols)))
             (sit-for 10))
         (while ols
-          (c-delete-overlay (pop ols))))))
-  (c-keep-region-active))
+          (dart-delete-overlay (pop ols)))))))
+  ;; (c-keep-region-active))
+
+(defsubst dart-langelem-pos (langelem)
+  "Return the anchor position in LANGELEM, or nil if there is none.
+
+LANGELEM is either a cons cell on the \"old\" form given as the first
+argument to lineup functions or a syntactic element on the \"new\"
+form as used in `dart-syntactic-element'."
+  (if (consp (cdr langelem))
+      (car-safe (cdr langelem))
+    (cdr langelem)))
+
+(defsubst dart-langelem-2nd-pos (langelem)
+  "Return the secondary position in LANGELEM, or nil if there is none.
+
+LANGELEM is typically a syntactic element on the \"new\" form as used
+in `c-syntactic-element'.  It may also be a cons cell as passed in the
+first argument to lineup functions, but then the returned value always
+will be nil."
+  (car-safe (cdr-safe (cdr-safe langelem))))
+
+(defmacro dart-delete-overlay (overlay)
+  ;; Deletes an overlay/extent object previously retrieved using
+  ;; `c-put-overlay'.
+  `(delete-overlay ,overlay))
 
 (define-key dart-mode-map (kbd "C-c C-s") 'dart-show-syntactic-information)
 
