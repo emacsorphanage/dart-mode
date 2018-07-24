@@ -930,6 +930,18 @@ This is intended to be called from `before-change-functions'."
   (dart-backwards-to-semicolon-or-opening-curly-or-comma)
   (dart-forward-to-statement))
 
+(defun dart-backwards-to-semicolon-or-opening-curly-or-comma ()
+  (re-search-backward (rx (any ";{,")) nil t))
+
+(defun dart-forward-to-statement ()
+  (end-of-line)
+  (skip-chars-forward " \n"))
+
+(defun dart-previous-statement ()
+  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
+  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
+  (dart-forward-to-statement))
+
 (defun dart-show-syntactic-information ()
   "Show syntactic information for current line."
   ;; This is completely stolen from cc-mode, to debug our
