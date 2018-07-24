@@ -552,6 +552,7 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
       (save-excursion
         (back-to-indentation)
 
+;; <<<<<<< HEAD
         (or
          ;; Handle indentation in a constructor with an initializer on a
          ;; separate line.
@@ -647,6 +648,63 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
       ;; wrapper was also screwing up indentation in weird ways, so we just ignore
       ;; it.
       (setq ad-return-value (c-parse-state-1)))))
+;; =======
+(defun dart-depth-of-line ()
+  (save-excursion
+    (back-to-indentation)
+    (let ((depth (car (syntax-ppss))))
+      (when (and (char-after)
+                 (= (char-syntax (char-after)) ?\)))
+        (while (and (char-after)
+                    (/= (char-syntax (char-after)) ?\()
+                    (/= (char-after) ?\C-j))
+          (when (= (char-syntax (char-after)) ?\))
+            (setq depth (1- depth)))
+          (forward-char)))
+      depth)))
+
+(defun dart-indent-line-relative ()
+  (let ((curr-depth (dart-depth-of-line))
+        prev-line
+        prev-depth
+        prev-indent
+        (basic-syntax (dart-guess-basic-syntax)))
+    (save-excursion
+      (beginning-of-line)
+      (catch 'done
+        (while t
+          (when (= (point) 1)
+            (throw 'done t))
+          (previous-line)
+          (unless (looking-at (rx (and bol (zero-or-more space) eol)))
+            (setq prev-line t)
+            (setq prev-indent (current-indentation))
+            (setq prev-depth (dart-depth-of-line))
+            (throw 'done t)))))
+    (save-excursion
+      (cond
+       ((member (caar basic-syntax) '(comment string))
+        nil)
+       ((eq (caar basic-syntax) 'top-level)
+        (indent-line-to 0))
+       ((eq (caar basic-syntax) 'statement-cont)
+        (indent-line-to (+ (save-excursion
+                             (goto-char (cadar basic-syntax))
+                             (current-indentation))
+                           (* 2 tab-width))))
+       ((member (caar basic-syntax) '(block-close defun-close))
+        (indent-line-to (save-excursion
+                          (goto-char (cadar basic-syntax))
+                          (current-indentation))))
+       (t
+        (if prev-line
+            (indent-line-to (max 0 (+ prev-indent
+                                      (* (- curr-depth prev-depth)
+                                         tab-width))))
+          (indent-line-to 0)))))
+    (when (< (current-column) (current-indentation))
+      (back-to-indentation))))
+;; >>>>>>> Save recent efforts approaching difficulties in arglist detection
 
 (defvar go-dangling-cache)
 
@@ -673,7 +731,6 @@ This is intended to be called from `before-change-functions'."
         (save-excursion
           (beginning-of-line)
           (dart-backward-irrelevant t)
-          (message "%S" (char-before (point)))
           (setq val (not (member (char-before (point)) '(?\x3b \?x7d))))
           ;; (setq val (looking-back dart-dangling-operators-regexp
           ;;                         (- (point) dart--max-dangling-operator-length)))
@@ -682,34 +739,165 @@ This is intended to be called from `before-change-functions'."
           ;;     (puthash cur-line val dart-dangling-cache))))
     val))
 
-(defun dart-backward-irrelevant (&optional stop-at-string)
-  (interactive)
-  (let (pos (start-pos (point)))
+(defun dart-backward-irrelevant ()
+  (let ((start-pos (point)))
     (skip-chars-backward "\n\s\t")
-    (cond ((or (nth 3 (syntax-ppss))
-               (nth 4 (syntax-ppss)))
-           (goto-char (nth 8 (syntax-ppss))))
-          ((looking-back "\\*/" (line-beginning-position))
-           (backward-char))
-          ((/= start-pos (point))
-           (dart-backward-irrelevant stop-at-string))
-          (t
-           (/= start-pos (point))))))
+    (when (nth 8 (syntax-ppss))
+      (goto-char (nth 8 (syntax-ppss))))
+    (if (> (abs (- start-pos (point))) 2)
+        (dart-backward-irrelevant))))
 
-(define-key dart-mode-map (kbd "C-c C-b") 'dart-backward-irrelevant)
+(defun dart-beginning-of-statement ()
+  (back-to-indentation)
+  (let ((pt (point)))
+    (dart-backward-irrelevant)
+    (if (or (= (point) (point-min))
+            (member (char-before) '(?\x3b ?\{ ?\})))
+        (goto-char pt)
+      (dart-beginning-of-statement))))
 
-(defun dart-comment-or-string-p ()
-  (nth 8 (syntax-ppss)))
+(defun dart-in-string-p ()
+  (nth 3 (syntax-ppss)))
+
+(defun dart-in-comment-p ()
+  (nth 4 (syntax-ppss)))
+
+(defun dart-goto-beginning-of-string-or-comment ()
+  (goto-char (nth 8 (syntax-ppss))))
+
+(defun dart--identifier (&optional case)
+  `(and (or word-start symbol-start)
+        (zero-or-more (any ?$ ?_))
+        ,(if case
+             case
+           'alpha)
+        (zero-or-more (or ?$ ?_ alnum))))
+
+(defun dart-classify-opening-curly ()
+  (catch 'result
+    (when (looking-back (rx (or "async" "async*" "sync*")
+                            (one-or-more space)))
+      (backward-word))
+    (when (and (looking-back (rx (and ?\)
+                                      (one-or-more space))))
+               (progn
+                 (backward-list)))
+      (dart-beginning-of-statement)
+      ;; (backward-word)
+
+      (when (looking-at (rx (or "if" "for" "while")))
+        (throw 'result `(statement-block ,(point))))
+
+      (when (looking-at (rx (eval (dart--identifier 'lower))))
+        (throw 'result `(defun-decl ,(point))))
+
+      )
+
+    (when (save-excursion
+            (dart-beginning-of-statement)
+            (looking-at "class")) 
+      (dart-beginning-of-statement)
+      (throw 'result `(class-decl ,(point))))
+    ))
+
+
+(defun dart-in-arglist-p ()
+  ;; Point starts at indentation, if point is in arg-list, returns
+  ;; point of start of statement, otherwise nil.
+  (catch 'result
+    (save-excursion
+      (let ((list-start (dart-in-list-p)))
+        (when list-start
+          ;; Go back up out of optional or named formal parameters
+          (when (member (char-after list-start) '(?\[ ?\{))
+            (setq list-start (dart-in-list-p)))
+          (when (and list-start
+                     (= (char-after list-start) ?\())
+            (goto-char list-start)
+            (when (looking-back (rx (eval (dart--identifier))))
+                  (dart-beginning-of-statement)
+                  (throw 'result (point)))))))
+    (throw 'result nil)))
+  
+(defun dart-in-list-p ()
+  (nth 1 (syntax-ppss)))
 
 (defun dart-guess-basic-syntax ()
   (catch 'result
     (let (c-syntactic-context syntactic-relpos)
       (save-excursion
         (back-to-indentation)
-        (when (nth 3 (syntax-ppss))
-          (throw 'result `((string ,(nth 8 (syntax-ppss))))))
-        (when (nth 4 (syntax-ppss))
-          (throw 'result `((comment ,(nth 8 (syntax-ppss))))))
+        (when (dart-in-string-p)
+          (throw 'result `((string))))
+        (when (dart-in-comment-p)
+          (throw 'result `((comment))))
+
+        (when (zerop (car (syntax-ppss)))
+          (throw 'result `((top-level))))
+
+        (when (dart-in-arglist-p)
+          ;; arglist-intro
+          ;; arglist-cont
+        ;; (save-excursion
+        ;;   (when (and (> (car (syntax-ppss)) 0)
+        ;;              (progn
+        ;;                (backward-up-list)
+        ;;                (= (char-after (point)) ?\())
+        ;;              (looking-back (rx (eval (dart--identifier)))))
+        ;;     (dart-beginning-of-statement)
+        ;;     (throw 'result `((arg-list-intro ,(point))))))
+
+        (let* ((pt (point))
+               (pt-depth (car (syntax-ppss)))
+               (bos (progn
+                      (dart-beginning-of-statement)
+                      (point)))
+               (bos-depth (progn
+                            (goto-char bos)
+                            (car (syntax-ppss)))))
+          (when (and (/= pt bos)
+                     (= pt-depth bos-depth))
+            (throw 'result `((statement-cont ,bos)))))
+
+        ;; Next, let's find the indentation for closing curlies.
+        ;; So we will consider if the first character at indentation
+        ;; is a closing curly,
+
+        (when (= (char-after) ?\})
+          (backward-up-list)
+          (let* ((result (dart-classify-opening-curly))
+                 (syntax (car result))
+                 (pt (cadr result)))
+            (cond
+             ((eq syntax 'defun-decl)
+              (throw 'result `((defun-close ,pt))))
+             ((eq syntax 'class-decl)
+              (throw 'result `((class-close ,pt))))
+             ((eq syntax 'statement-block)
+              (throw 'result `((block-close ,pt))))
+             )))
+
+        ;; (when ???
+        ;;   (throw 'result `((brace-open ???))))
+
+        (when (save-excursion
+                (progn
+                  (dart-backward-irrelevant)
+                  (char-before ?\{)))
+          (dart-backward-irrelevant)
+          (backward-char)
+          (let* ((result (dart-classify-opening-curly))
+                 (syntax (car result))
+                 (pt (cadr result)))
+            (cond
+             ((eq syntax 'defun-decl)
+              (throw 'result `((defun-block-intro ,pt))))
+             ((eq syntax 'class-decl)
+              (throw 'result `((inclass ,pt))))
+             ((eq syntax 'statement-block)
+              (throw 'result `((statement-block-intro ,pt))))
+             )))
+
         (when (save-excursion
                 (and (progn
                        (previous-line)
@@ -728,7 +916,19 @@ This is intended to be called from `before-change-functions'."
           (throw 'result `((closing ,(cadr (syntax-ppss))))))
         (when (> (car (syntax-ppss)) 0)
           (throw 'result `((brace ,(cadr (syntax-ppss))))))
-        ))))
+        )))))
+
+(defun dart-backwards-to-semicolon-or-opening-curly-or-comma ()
+  (re-search-backward (rx (any ";{,")) nil t))
+
+(defun dart-forward-to-statement ()
+  (end-of-line)
+  (skip-chars-forward " \n"))
+
+(defun dart-previous-statement ()
+  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
+  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
+  (dart-forward-to-statement))
 
 (defun dart-show-syntactic-information ()
   "Show syntactic information for current line."
@@ -745,17 +945,25 @@ This is intended to be called from `before-change-functions'."
             (while syntax
               (setq elem (pop syntax))
               (when (setq pos (dart-langelem-pos elem))
-                (push (c-put-overlay pos (1+ pos)
+                (push (dart-put-overlay pos (1+ pos)
                                      'face 'highlight)
                       ols))
               (when (setq pos (dart-langelem-2nd-pos elem))
-                (push (c-put-overlay pos (1+ pos)
+                (push (dart-put-overlay pos (1+ pos)
                                      'face 'secondary-selection)
                       ols)))
             (sit-for 10))
         (while ols
           (dart-delete-overlay (pop ols)))))))
   ;; (c-keep-region-active))
+
+(defmacro dart-put-overlay (from to property value)
+  ;; Put an overlay/extent covering the given range in the current
+  ;; buffer.  It's currently undefined whether it's front/end sticky
+  ;; or not.  The overlay/extent object is returned.
+  `(let ((ol (make-overlay ,from ,to)))
+     (overlay-put ol ,property ,value)
+     ol))
 
 (defsubst dart-langelem-pos (langelem)
   "Return the anchor position in LANGELEM, or nil if there is none.
@@ -784,6 +992,281 @@ will be nil."
 (define-key dart-mode-map (kbd "C-c C-s") 'dart-show-syntactic-information)
 
 ;;; Additional fontification support
+
+(setq dart--builtins
+      ;; ECMA 408; Section: Identifier Reference
+      ;; "Built-in identifiers"
+      '("abstract" "as" "deferred" "dynamic" "export" "external"
+        "factory" "get" "implements" "import" "library" "operator"
+        "part" "set" "static" "typedef"))
+
+(setq dart--keywords
+      ;; ECMA 408; Section: Reserved Words
+      '("assert" "break" "case" "catch" "class" "const" "continue"
+        "default" "do" "else" "enum" "extends" "final" "finally" "for"
+        "if" "in" "is" "new" "rethrow" "return" "super" "switch"
+        "this" "throw" "try" "var" "while" "with"))
+
+(setq dart--types '("bool" "double" "dynamic" "int" "num" "void"))
+
+(setq dart--constants '("false" "null" "true"))
+
+(setq dart--async-keywords-re (rx word-start
+                                  (or "async" "await" "sync" "yield")
+                                  word-end
+                                  (zero-or-one ?*)))
+
+(setq dart--number-re (rx symbol-start
+                          (zero-or-one ?-)
+                          (group (or (and (one-or-more digit)
+                                          (zero-or-one
+                                           (and ?. (one-or-more digit))))
+                                     (and ?. (one-or-more digit)))
+                                 (zero-or-one (and (or ?e ?E)
+                                                   (zero-or-one (or ?+ ?-))
+                                                   (one-or-more digit))))))
+
+(setq dart--hex-number-re (rx symbol-start
+                              (zero-or-one ?-)
+                              (group (or "0x" "0X")
+                                     (one-or-more (any (?a . ?f)
+                                                       (?A . ?F)
+                                                       digit)))))
+
+(setq dart--metadata-re (rx ?@ (eval (dart--identifier))))
+
+(setq dart--types-re (rx (eval (dart--identifier 'upper))))
+
+(defun dart--string-interpolation-id-func (limit)
+  (catch 'result
+    (let (data end syntax)
+      (while (re-search-forward (rx (group ?$)
+                                    (group (zero-or-more ?_)
+                                           lower
+                                           (zero-or-more (or ?_ alnum))))
+                                limit t)
+        (setq data (match-data))
+        (setq end (match-end 2))
+        (setq syntax (syntax-ppss))
+        (when (and (nth 3 syntax)
+                   (or (= (nth 8 syntax) 1)
+                       (not (eq (char-before (nth 8 syntax)) ?r))))
+          (set-match-data data)
+          (goto-char end)
+          (throw 'result t))
+        (when end
+          (goto-char end)))
+      (throw 'result nil))))
+
+(defun dart--string-interpolation-exp-func (limit)
+  ;; While there are still ${ in non-raw strings to be found.
+  ;; While point has positive depth and is in string.
+  ;; Move forward.
+  ;; If depth hits zero, return match.
+  ;; If we leave string, search again.
+  ;; When we run out of search results, return nil.
+  (catch 'result
+    (let (sigil beg open close end syntax depth)
+      (while (and (search-forward "${" limit t)
+                  (save-excursion
+                    (and (nth 3 (syntax-ppss))
+                         (not (eq (char-before (nth 8 (syntax-ppss))) ?r)))))
+        (setq open (point))
+        (setq beg (- open 1))
+        (setq sigil (- open 2))
+        (setq depth 1)
+        (while (and (> depth 0)
+                    (< (point) limit)
+                    (nth 3 (syntax-ppss)))
+          (setq depth (+ depth (pcase (char-after)
+                                 (?\{ 1)
+                                 (?\} -1)
+                                 (_ 0))))
+          (forward-char))
+        (setq end (point))
+        (when (= depth 0)
+          (setq close (1- end))
+          (set-match-data (list sigil end
+                                sigil beg
+                                beg open
+                                open close
+                                close end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char end))
+      (throw 'result nil))))
+
+(defun dart--function-declaration-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+        (setq beg (match-beginning 1))
+        (setq end (match-end 1))
+        (condition-case nil
+            (progn
+              (up-list)
+              (when (looking-at (rx (one-or-more space)
+                                    (or "async" "async*" "sync*" "{" "=>")))
+                (set-match-data (list beg end))
+                (goto-char end)
+                (throw 'result t)))
+          (scan-error nil))
+        (goto-char end))
+      (throw 'result nil))))
+
+(defun dart--declared-identifier-func (limit)
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx
+               (and (group (or (or "const" "final"
+                                   "bool" "double" "dynamic" "int" "num" "void"
+                                   "var"
+                                   "get" "set")
+                               (eval (dart--identifier 'upper)))
+                           (zero-or-one ?>))
+                    (one-or-more (or space ?\C-j))
+                    (group (eval (dart--identifier 'lower)))
+                    (not (any ?\( alnum ?$ ?_))))
+              limit t)
+        (setq beg (match-beginning 2))
+        (setq end (match-end 2))
+        (when (not (member (match-string 2)
+                           '("bool" "double" "dynamic" "int" "num" "void"
+                             "var"
+                             "get" "set")))
+          (set-match-data (list beg end))
+          (goto-char end)
+          (throw 'result t))
+        (goto-char (match-end 1)))
+      (throw 'result nil))))
+
+(defun dart--in-parenthesized-expression-or-formal-parameter-list-p ()
+  (save-excursion
+    (catch 'result
+      (condition-case nil
+          (backward-up-list)
+        (scan-error (throw 'result nil)))
+      (when (member (char-after (point)) '(?\[ ?\{))
+        (condition-case nil
+            (backward-up-list)
+          (scan-error (throw 'result nil))))
+      (throw 'result (= (char-after (point)) ?\()))))
+
+(defun dart--declared-identifier-anchor-func (limit)
+  (catch 'result
+    (let (data)
+      (while (dart--declared-identifier-func limit)
+        (setq data (match-data))
+        (unless (dart--in-parenthesized-expression-or-formal-parameter-list-p)
+          (set-match-data data)
+          (goto-char (match-end 0))
+          (throw 'result t))
+        (goto-char (match-end 0)))
+      (throw 'result nil))))
+
+(defun dart--declared-identifier-next-func (limit)
+  (catch 'result
+    (let ((depth (car (syntax-ppss))))
+      (while t
+        (cond
+         ((or (= (char-after (point)) ?\x3b) ; ?;
+              (< (car (syntax-ppss)) depth))
+          (throw 'result nil))
+         ((and (= (char-after (point)) ?\x2c) ; ?,
+               (= (car (syntax-ppss)) depth))
+          (if (looking-at (rx ?\x2c
+                              (one-or-more space)
+                              (group (eval (dart--identifier 'lower)))))
+              (progn (set-match-data (list (match-beginning 1)
+                                           (match-end 1)))
+                     (goto-char (match-end 0))
+                     (throw 'result t))
+            (throw 'result nil)))
+         ((< (point) (point-max))
+          (forward-char))
+         (t (throw 'result nil)))))))
+
+(setq dart-font-lock-defaults
+      `((,dart--async-keywords-re
+         ,(regexp-opt dart--keywords 'words)
+         (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
+         (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
+         (,dart--hex-number-re                 . (1 font-lock-constant-face))
+         (,dart--number-re                     . (1 font-lock-constant-face))
+         (,dart--metadata-re                   . font-lock-constant-face)
+         (,(regexp-opt dart--types 'words)     . font-lock-type-face)
+         (,dart--types-re                      . font-lock-type-face)
+         (dart--function-declaration-func      . font-lock-function-name-face)
+         (dart--declared-identifier-func       . font-lock-variable-name-face)
+         (dart--declared-identifier-anchor-func
+          . (dart--declared-identifier-next-func
+             nil
+             nil
+             (0 font-lock-variable-name-face)))
+         (dart--string-interpolation-id-func   (0 font-lock-variable-name-face t))
+         (dart--string-interpolation-exp-func  (0 font-lock-variable-name-face t)))))
+
+(setq dart-string-delimiter (rx (and
+                            ;; Match even number of backslashes.
+                            (or (not (any ?\\ ?\' ?\")) point
+                                ;; Quotes might be preceded by an escaped quote.
+                                (and (or (not (any ?\\)) point) ?\\
+                                     (* ?\\ ?\\) (any ?\' ?\")))
+                            (* ?\\ ?\\)
+                            ;; Match single or triple quotes of any kind.
+                            (group (or  "\"" "\"\"\"" "'" "'''")))))
+
+(defconst dart-syntax-propertize-function
+  (syntax-propertize-rules
+   (dart-string-delimiter
+    (0 (ignore (dart-syntax-stringify))))))
+
+(defsubst dart-syntax-count-quotes (quote-char &optional point limit)
+  "Count number of quotes around point (max is 3).
+QUOTE-CHAR is the quote char to count.  Optional argument POINT is
+the point where scan starts (defaults to current point), and LIMIT
+is used to limit the scan."
+  (let ((i 0))
+    (while (and (< i 3)
+                (or (not limit) (< (+ point i) limit))
+                (eq (char-after (+ point i)) quote-char))
+      (setq i (1+ i)))
+    i))
+
+(defun dart-syntax-stringify ()
+  "Put `syntax-table' property correctly on single/triple quotes."
+  (let* ((num-quotes (length (match-string-no-properties 1)))
+         (ppss (prog2
+                   (backward-char num-quotes)
+                   (syntax-ppss)
+                 (forward-char num-quotes)))
+         (string-start (and (not (nth 4 ppss)) (nth 8 ppss)))
+         (quote-starting-pos (- (point) num-quotes))
+         (quote-ending-pos (point))
+         (num-closing-quotes
+          (and string-start
+               (dart-syntax-count-quotes
+                (char-before) string-start quote-starting-pos))))
+    (cond ((and string-start (= num-closing-quotes 0))
+           ;; This set of quotes doesn't match the string starting
+           ;; kind. Do nothing.
+           nil)
+          ((not string-start)
+           ;; This set of quotes delimit the start of a string.
+           (put-text-property quote-starting-pos (1+ quote-starting-pos)
+                              'syntax-table (string-to-syntax "|")))
+          ((= num-quotes num-closing-quotes)
+           ;; This set of quotes delimit the end of a string.
+           (put-text-property (1- quote-ending-pos) quote-ending-pos
+                              'syntax-table (string-to-syntax "|")))
+          ((> num-quotes num-closing-quotes)
+           ;; This may only happen whenever a triple quote is closing
+           ;; a single quoted string. Add string delimiter syntax to
+           ;; all three quotes.
+           (put-text-property quote-starting-pos quote-ending-pos
+                              'syntax-table (string-to-syntax "|"))))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
