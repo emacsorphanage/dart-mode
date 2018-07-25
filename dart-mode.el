@@ -669,39 +669,50 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
         prev-depth
         prev-indent
         (basic-syntax (dart-guess-basic-syntax)))
-    (save-excursion
-      (beginning-of-line)
-      (catch 'done
-        (while t
-          (when (= (point) 1)
-            (throw 'done t))
-          (previous-line)
-          (unless (looking-at (rx (and bol (zero-or-more space) eol)))
-            (setq prev-line t)
-            (setq prev-indent (current-indentation))
-            (setq prev-depth (dart-depth-of-line))
-            (throw 'done t)))))
+    ;; (save-excursion
+    ;;   (beginning-of-line)
+    ;;   (catch 'done
+    ;;     (while t
+    ;;       (when (= (point) (point-min))
+    ;;         (throw 'done t))
+    ;;       (previous-line)
+    ;;       (unless (looking-at (rx (and bol (zero-or-more space) eol)))
+    ;;         (setq prev-line t)
+    ;;         (setq prev-indent (current-indentation))
+    ;;         (setq prev-depth (dart-depth-of-line))
+    ;;         (throw 'done t)))))
     (save-excursion
       (cond
        ((member (caar basic-syntax) '(comment string))
         nil)
        ((eq (caar basic-syntax) 'top-level)
         (indent-line-to 0))
+       ((eq (caar basic-syntax) 'block-intro)
+        (indent-line-to (+ (save-excursion
+                             (goto-char (cadar basic-syntax))
+                             (current-indentation))
+                           tab-width)))
        ((eq (caar basic-syntax) 'statement-cont)
         (indent-line-to (+ (save-excursion
                              (goto-char (cadar basic-syntax))
                              (current-indentation))
                            (* 2 tab-width))))
-       ((member (caar basic-syntax) '(block-close defun-close))
+       ;; ((member (caar basic-syntax) '(block-close defun-close))
+       ((eq (caar basic-syntax) 'close)
         (indent-line-to (save-excursion
                           (goto-char (cadar basic-syntax))
                           (current-indentation))))
-       (t
-        (if prev-line
-            (indent-line-to (max 0 (+ prev-indent
-                                      (* (- curr-depth prev-depth)
-                                         tab-width))))
-          (indent-line-to 0)))))
+       ((eq (caar basic-syntax) 'statement)
+        (indent-line-to (save-excursion
+                          (goto-char (cadar basic-syntax))
+                          (current-indentation))))
+       ;; (t
+       ;;  (if prev-line
+       ;;      (indent-line-to (max 0 (+ prev-indent
+       ;;                                (* (- curr-depth prev-depth)
+       ;;                                   tab-width))))
+       ;;    (indent-line-to 0))))
+      ))
     (when (< (current-column) (current-indentation))
       (back-to-indentation))))
 ;; >>>>>>> Save recent efforts approaching difficulties in arglist detection
@@ -742,19 +753,21 @@ This is intended to be called from `before-change-functions'."
 (defun dart-backward-irrelevant ()
   (let ((start-pos (point)))
     (skip-chars-backward "\n\s\t")
+    (when (looking-back "\\*/")
+      (backward-char))
     (when (nth 8 (syntax-ppss))
       (goto-char (nth 8 (syntax-ppss))))
-    (if (> (abs (- start-pos (point))) 2)
+    (when (> (abs (- start-pos (point))) 2)
         (dart-backward-irrelevant))))
 
-(defun dart-beginning-of-statement ()
+(defun dart-beginning-of-statement-2 ()
   (back-to-indentation)
   (let ((pt (point)))
     (dart-backward-irrelevant)
     (if (or (= (point) (point-min))
             (member (char-before) '(?\x3b ?\{ ?\})))
         (goto-char pt)
-      (dart-beginning-of-statement))))
+      (dart-beginning-of-statement-2))))
 
 (defun dart-in-string-p ()
   (nth 3 (syntax-ppss)))
@@ -782,7 +795,7 @@ This is intended to be called from `before-change-functions'."
                                       (one-or-more space))))
                (progn
                  (backward-list)))
-      (dart-beginning-of-statement)
+      (dart-beginning-of-statement-2)
       ;; (backward-word)
 
       (when (looking-at (rx (or "if" "for" "while")))
@@ -794,9 +807,9 @@ This is intended to be called from `before-change-functions'."
       )
 
     (when (save-excursion
-            (dart-beginning-of-statement)
+            (dart-beginning-of-statement-2)
             (looking-at "class")) 
-      (dart-beginning-of-statement)
+      (dart-beginning-of-statement-2)
       (throw 'result `(class-decl ,(point))))
     ))
 
@@ -815,12 +828,38 @@ This is intended to be called from `before-change-functions'."
                      (= (char-after list-start) ?\())
             (goto-char list-start)
             (when (looking-back (rx (eval (dart--identifier))))
-                  (dart-beginning-of-statement)
+                  (dart-beginning-of-statement-2)
                   (throw 'result (point)))))))
     (throw 'result nil)))
   
 (defun dart-in-list-p ()
   (nth 1 (syntax-ppss)))
+
+(defun dart-top-level-p ()
+  (and (zerop (car (syntax-ppss)))
+       (= (point)
+            (save-excursion
+              (dart-beginning-of-statement-2)
+              (point)))))
+
+(defun dart-statement-continued-p ()
+  ;; If current line is a continued statement, return position of
+  ;; beginning, otherwise, nil.
+  (save-excursion
+    (back-to-indentation)
+    (let* ((pt (point))
+           (pt-depth (car (syntax-ppss)))
+           (bos (progn
+                  (dart-beginning-of-statement-2)
+                  (point)))
+           (bos-depth (progn
+                        (goto-char bos)
+                        (car (syntax-ppss)))))
+      (if (and (/= pt bos)
+               ;; (= pt-depth bos-depth)
+               )
+          bos
+        nil))))
 
 (defun dart-guess-basic-syntax ()
   (catch 'result
@@ -831,104 +870,111 @@ This is intended to be called from `before-change-functions'."
           (throw 'result `((string))))
         (when (dart-in-comment-p)
           (throw 'result `((comment))))
-
-        (when (zerop (car (syntax-ppss)))
+        (when (dart-top-level-p)
           (throw 'result `((top-level))))
+        (when (member (char-after (point)) '(?\) ?\] ?\}))
+            (backward-up-list)
+            (dart-beginning-of-statement-2)
+            (throw 'result `((close ,(point)))))
 
-        (when (dart-in-arglist-p)
-          ;; arglist-intro
-          ;; arglist-cont
-        ;; (save-excursion
-        ;;   (when (and (> (car (syntax-ppss)) 0)
-        ;;              (progn
-        ;;                (backward-up-list)
-        ;;                (= (char-after (point)) ?\())
-        ;;              (looking-back (rx (eval (dart--identifier)))))
-        ;;     (dart-beginning-of-statement)
-        ;;     (throw 'result `((arg-list-intro ,(point))))))
+        (let ((stmt-cont (dart-statement-continued-p)))
+          (when stmt-cont
+            (throw 'result `((statement-cont ,stmt-cont)))))
 
-        (let* ((pt (point))
-               (pt-depth (car (syntax-ppss)))
-               (bos (progn
-                      (dart-beginning-of-statement)
-                      (point)))
-               (bos-depth (progn
-                            (goto-char bos)
-                            (car (syntax-ppss)))))
-          (when (and (/= pt bos)
-                     (= pt-depth bos-depth))
-            (throw 'result `((statement-cont ,bos)))))
-
-        ;; Next, let's find the indentation for closing curlies.
-        ;; So we will consider if the first character at indentation
-        ;; is a closing curly,
-
-        (when (= (char-after) ?\})
-          (backward-up-list)
-          (let* ((result (dart-classify-opening-curly))
-                 (syntax (car result))
-                 (pt (cadr result)))
-            (cond
-             ((eq syntax 'defun-decl)
-              (throw 'result `((defun-close ,pt))))
-             ((eq syntax 'class-decl)
-              (throw 'result `((class-close ,pt))))
-             ((eq syntax 'statement-block)
-              (throw 'result `((block-close ,pt))))
-             )))
-
-        ;; (when ???
-        ;;   (throw 'result `((brace-open ???))))
-
-        (when (save-excursion
-                (progn
-                  (dart-backward-irrelevant)
-                  (char-before ?\{)))
+        (save-excursion
           (dart-backward-irrelevant)
-          (backward-char)
-          (let* ((result (dart-classify-opening-curly))
-                 (syntax (car result))
-                 (pt (cadr result)))
-            (cond
-             ((eq syntax 'defun-decl)
-              (throw 'result `((defun-block-intro ,pt))))
-             ((eq syntax 'class-decl)
-              (throw 'result `((inclass ,pt))))
-             ((eq syntax 'statement-block)
-              (throw 'result `((statement-block-intro ,pt))))
-             )))
+          (when (= (char-before (point)) ?\x3b)
+            (let ((bos (dart-beginning-of-statement-2)))
+              (throw 'result `((statement ,bos))))))
+                  
+        (save-excursion
+          (dart-backward-irrelevant)
+          (when (member (char-before (point)) '(?\( ?\[ ?\{))
+            (let ((bos (dart-beginning-of-statement-2)))
+              (throw 'result `((block-intro ,bos))))))
+                  
+        ;; (when (dart-in-arglist-p)
+        ;;   ;; arglist-intro
+        ;;   ;; arglist-cont
+        ;; ;; (save-excursion
+        ;; ;;   (when (and (> (car (syntax-ppss)) 0)
+        ;; ;;              (progn
+        ;; ;;                (backward-up-list)
+        ;; ;;                (= (char-after (point)) ?\())
+        ;; ;;              (looking-back (rx (eval (dart--identifier)))))
+        ;; ;;     (dart-beginning-of-statement)
+        ;; ;;     (throw 'result `((arg-list-intro ,(point))))))
 
-        (when (save-excursion
-                (and (progn
-                       (previous-line)
-                       (end-of-line)
-                       (= (char-before (point)) ?\x3b))
-                     (progn
-                       (previous-line)
-                       (end-of-line)
-                       (= (char-before (point)) ?\x3b))))
-          (throw 'result `((statement))))
-        (when (= (car (syntax-after (point))) 5)
-          (while (looking-at (rx (zero-or-one (or ?, ?\x3b))
-                                 (syntax close-parenthesis)))
-            (goto-char (match-end 0)))
-          (backward-char)
-          (throw 'result `((closing ,(cadr (syntax-ppss))))))
-        (when (> (car (syntax-ppss)) 0)
-          (throw 'result `((brace ,(cadr (syntax-ppss))))))
-        )))))
+        ;; (let* ((pt (point))
+        ;;        (pt-depth (car (syntax-ppss)))
+        ;;        (bos (progn
+        ;;               (dart-beginning-of-statement)
+        ;;               (point)))
+        ;;        (bos-depth (progn
+        ;;                     (goto-char bos)
+        ;;                     (car (syntax-ppss)))))
+        ;;   (when (and (/= pt bos)
+        ;;              (= pt-depth bos-depth))
+        ;;     (throw 'result `((statement-cont ,bos)))))
 
-(defun dart-backwards-to-semicolon-or-opening-curly-or-comma ()
-  (re-search-backward (rx (any ";{,")) nil t))
+        ;; ;; Next, let's find the indentation for closing curlies.
+        ;; ;; So we will consider if the first character at indentation
+        ;; ;; is a closing curly,
 
-(defun dart-forward-to-statement ()
-  (end-of-line)
-  (skip-chars-forward " \n"))
+        ;; (when (= (char-after) ?\})
+        ;;   (backward-up-list)
+        ;;   (let* ((result (dart-classify-opening-curly))
+        ;;          (syntax (car result))
+        ;;          (pt (cadr result)))
+        ;;     (cond
+        ;;      ((eq syntax 'defun-decl)
+        ;;       (throw 'result `((defun-close ,pt))))
+        ;;      ((eq syntax 'class-decl)
+        ;;       (throw 'result `((class-close ,pt))))
+        ;;      ((eq syntax 'statement-block)
+        ;;       (throw 'result `((block-close ,pt))))
+        ;;      )))
 
-(defun dart-previous-statement ()
-  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
-  (dart-backwards-to-semicolon-or-opening-curly-or-comma)
-  (dart-forward-to-statement))
+        ;; ;; (when ???
+        ;; ;;   (throw 'result `((brace-open ???))))
+
+        ;; (when (save-excursion
+        ;;         (progn
+        ;;           (dart-backward-irrelevant)
+        ;;           (char-before ?\{)))
+        ;;   (dart-backward-irrelevant)
+        ;;   (backward-char)
+        ;;   (let* ((result (dart-classify-opening-curly))
+        ;;          (syntax (car result))
+        ;;          (pt (cadr result)))
+        ;;     (cond
+        ;;      ((eq syntax 'defun-decl)
+        ;;       (throw 'result `((defun-block-intro ,pt))))
+        ;;      ((eq syntax 'class-decl)
+        ;;       (throw 'result `((inclass ,pt))))
+        ;;      ((eq syntax 'statement-block)
+        ;;       (throw 'result `((statement-block-intro ,pt))))
+        ;;      )))
+        
+        ;; (when (save-excursion
+        ;;         (and (progn
+        ;;                (previous-line)
+        ;;                (end-of-line)
+        ;;                (= (char-before (point)) ?\x3b))
+        ;;              (progn
+        ;;                (previous-line)
+        ;;                (end-of-line)
+        ;;                (= (char-before (point)) ?\x3b))))
+        ;;   (throw 'result `((statement))))
+        ;; (when (= (car (syntax-after (point))) 5)
+        ;;   (while (looking-at (rx (zero-or-one (or ?, ?\x3b))
+        ;;                          (syntax close-parenthesis)))
+        ;;     (goto-char (match-end 0)))
+        ;;   (backward-char)
+        ;;   (throw 'result `((closing ,(cadr (syntax-ppss))))))
+        ;; (when (> (car (syntax-ppss)) 0)
+        ;;   (throw 'result `((brace ,(cadr (syntax-ppss))))))
+        ))))
 
 (defun dart-backwards-to-semicolon-or-opening-curly-or-comma ()
   (re-search-backward (rx (any ";{,")) nil t))
