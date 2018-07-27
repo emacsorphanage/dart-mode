@@ -80,6 +80,9 @@
 
 (require 'cc-mode)
 (eval-when-compile
+  (and (= emacs-major-version 24)
+       (>= emacs-minor-version 4)
+       (require 'cl))
   (require 'cc-langs)
   (require 'cc-fonts))
 
