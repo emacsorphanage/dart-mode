@@ -910,8 +910,8 @@ otherwise.  If no FILE is given, then this will default to the variable
          (pub-root (locate-dominating-file file-to-add "pubspec.yaml"))
          (current-dir (file-name-directory file-to-add)))
     (if pub-root
-        (dart-add-to-analysis-roots (expand-file-name pub-root))
-      (dart-add-to-analysis-roots (expand-file-name current-dir)))))
+        (dart-add-to-analysis-roots (directory-file-name (expand-file-name pub-root)))
+      (dart-add-to-analysis-roots (directory-file-name (expand-file-name current-dir))))))
 
 (defun dart-add-to-analysis-roots (dir)
   "Add DIR to the analysis server's analysis roots.
