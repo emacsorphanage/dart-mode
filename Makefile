@@ -1,4 +1,4 @@
 .PHONY: test
 
 test:
-	cask emacs -Q -batch -L . --eval "(require 'dart-mode)"
+	cask exec ert-runner
