@@ -1,6 +1,10 @@
 sudo: required
 
-language: generic
+language: dart
+
+dart:
+  - stable
+  - dev
 
 env:
   # - EVM_EMACS=emacs-24.1-travis
