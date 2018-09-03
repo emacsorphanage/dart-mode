@@ -1880,7 +1880,7 @@ Key bindings:
             (lambda () (when dart-format-on-save (dart-format))))
 
   (run-hooks 'c-mode-common-hook)
-  (run-hooks 'dart-mode-hook)
+  (run-mode-hooks 'dart-mode-hook)
   (c-update-modeline))
 
 (provide 'dart-mode)
