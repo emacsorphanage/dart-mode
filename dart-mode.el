@@ -833,8 +833,7 @@ Initializes analysis server support for all `dart-mode' buffers."
           (start-process "dart-analysis-server"
                          "*dart-analysis-server*"
                          (dart-executable-path)
-                         (dart--analysis-server-snapshot-path)
-                         "--no-error-notification")))
+                         (dart--analysis-server-snapshot-path))))
     (set-process-query-on-exit-flag dart-process nil)
     (setq dart--analysis-server
           (dart--analysis-server-create dart-process)))
