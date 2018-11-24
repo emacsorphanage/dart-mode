@@ -29,6 +29,9 @@ SDK. This is used to run the [Dart analysis server](#dart-analyzer) and the Dart
 formatter. By default, it's set by finding the `dart` executable on the system
 path.
 
+If you've installed `flutter` but not `dart`, you might try `(setq
+dart-sdk-path "/path/to/flutter/bin/cache/dart-sdk/")`.
+
 Note that user code that wants to run Dart scripts can use the
 `dart-executable-path` function to locate the `dart` executable itself in the
 SDK's `bin/` directory.
