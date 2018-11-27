@@ -781,7 +781,17 @@ This is intended to be called from `before-change-functions'."
             (member (char-before) '(?\x3b
                                     ?\{
                                     ?\}
+<<<<<<< Updated upstream
+;; <<<<<<< Updated upstream
                                     ?\()))
+;; =======
+                                    ?\(
+                                    ?,)))
+;; >>>>>>> Stashed changes
+=======
+                                    ?\(
+                                    ?,)))
+>>>>>>> Stashed changes
         (goto-char pt)
       (dart-beginning-of-statement-or-argument))))
 
@@ -935,10 +945,16 @@ This is intended to be called from `before-change-functions'."
             (dart-beginning-of-statement-2)
             (throw 'result `((close ,(point)))))
 
+<<<<<<< Updated upstream
+;; <<<<<<< Updated upstream
         (when (dart-in-arglist-p)
           (message "omg!")
           (throw 'result `((omg))))
 
+;; =======
+;; >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
         (let ((annot-cont (dart-annotation-continued-p)))
           (when annot-cont
             (throw 'result `((annotation-cont ,annot-cont)))))
