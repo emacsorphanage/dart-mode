@@ -60,15 +60,10 @@
 ;;
 ;; Known bugs:
 ;;
-;; * Multiline strings using """ and ''' are not recognized. They fontify
-;;   correctly, but only because they look like three strings in a row.
 ;; * In a map with identifier keys, the first key is fontified like a label.
 ;; * Return values for operator methods aren't fontified correctly.
 ;; * Untyped parameters aren't fontified correctly.
-;; * Quotes immediately after string interpolation are marked as unclosed.
 ;; * Sexp movement doesn't properly ignore quotes in interpolation.
-;; * Methods using "=>" can cause indentation woes.
-;; * C and C++ modes seem to be hosed.
 
 ;; Definitions adapted from go-mode.el are
 ;;
@@ -306,7 +301,7 @@ Returns nil if `dart-sdk-path' is nil."
               "dart"))))
 
 
-;;; CC configuration
+;;; Configuration
 
 (c-lang-defconst c-symbol-start
   dart (concat "[" c-alpha "_]"))
@@ -484,8 +479,13 @@ Returns nil if `dart-sdk-path' is nil."
 (define-key dart-mode-map (kbd "C-c C-o") 'dart-format)
 (define-key dart-mode-map (kbd "M-/") 'dart-expand)
 (define-key dart-mode-map (kbd "M-?") 'dart-expand-parameters)
+(define-key dart-mode-map (kbd "TAB") 'indent-for-tab-command)
+(define-key dart-mode-map (kbd "<backtab>") 'dart-dedent-simple)
+(define-key dart-mode-map (kbd "C-c C-i") 'indent-according-to-mode)
+(define-key dart-mode-map (kbd "C-c C-s") 'dart-show-syntactic-information)
 
-;;; CC indentation support
+
+;;; Indentation support
 
 (defun dart-block-offset (info)
   "Calculate the correct indentation for inline functions.
@@ -692,6 +692,10 @@ SYNTAX-GUESS is the output of `c-guess-basic-syntax'."
                              (goto-char (cadar basic-syntax))
                              (current-indentation))
                            tab-width)))
+       ((eq (caar basic-syntax) 'annotation-cont)
+        (indent-line-to (save-excursion
+                          (goto-char (cadar basic-syntax))
+                          (current-indentation))))
        ((eq (caar basic-syntax) 'statement-cont)
         (indent-line-to (+ (save-excursion
                              (goto-char (cadar basic-syntax))
@@ -769,6 +773,18 @@ This is intended to be called from `before-change-functions'."
         (goto-char pt)
       (dart-beginning-of-statement-2))))
 
+(defun dart-beginning-of-statement-or-argument ()
+  (back-to-indentation)
+  (let ((pt (point)))
+    (dart-backward-irrelevant)
+    (if (or (= (point) (point-min))
+            (member (char-before) '(?\x3b
+                                    ?\{
+                                    ?\}
+                                    ?\()))
+        (goto-char pt)
+      (dart-beginning-of-statement-or-argument))))
+
 (defun dart-in-string-p ()
   (nth 3 (syntax-ppss)))
 
@@ -813,7 +829,6 @@ This is intended to be called from `before-change-functions'."
       (throw 'result `(class-decl ,(point))))
     ))
 
-
 (defun dart-in-arglist-p ()
   ;; Point starts at indentation, if point is in arg-list, returns
   ;; point of start of statement, otherwise nil.
@@ -826,10 +841,11 @@ This is intended to be called from `before-change-functions'."
             (setq list-start (dart-in-list-p)))
           (when (and list-start
                      (= (char-after list-start) ?\())
-            (goto-char list-start)
-            (when (looking-back (rx (eval (dart--identifier))))
-                  (dart-beginning-of-statement-2)
-                  (throw 'result (point)))))))
+            (throw 'result t)))))
+            ;; (goto-char list-start)
+            ;; (when (looking-back (rx (eval (dart--identifier))))
+            ;;       (dart-beginning-of-statement-2)
+            ;;       (throw 'result (point)))))))
     (throw 'result nil)))
   
 (defun dart-in-list-p ()
@@ -841,6 +857,26 @@ This is intended to be called from `before-change-functions'."
             (save-excursion
               (dart-beginning-of-statement-2)
               (point)))))
+
+(defun dart-annotation-continued-p ()
+  ;; If current line is a continued annotation, return position of
+  ;; beginning, otherwise, nil.
+  (save-excursion
+    (back-to-indentation)
+    (let* ((pt (point))
+           (pt-depth (car (syntax-ppss)))
+           (bos (progn
+                  (dart-beginning-of-statement-2)
+                  (point)))
+           (bos-depth (progn
+                        (goto-char bos)
+                        (car (syntax-ppss)))))
+      (if (and (/= pt bos)
+               (= (char-after bos) ?@)
+               ;; (= pt-depth bos-depth)
+               )
+          bos
+        nil))))
 
 (defun dart-statement-continued-p ()
   ;; If current line is a continued statement, return position of
@@ -861,21 +897,51 @@ This is intended to be called from `before-change-functions'."
           bos
         nil))))
 
+(defun set-buffer-string-with-point (&rest strings)
+  "Set STRINGS to be the buffer contents, moving point wherever _|_ is."
+  (erase-buffer)
+  (apply #'insert-source strings)
+  (goto-char (point-min))
+  (search-forward "_|_")
+  (delete-char -3))
+
+;; (defun dart-ensure-syntax-everywhere ()
+;;   (interactive)
+;;   (save-excursion
+
+
 (defun dart-guess-basic-syntax ()
+  ;; Detects syntax at point.
+  ;;
+  ;; If it
   (catch 'result
     (let (c-syntactic-context syntactic-relpos)
+
       (save-excursion
+
         (back-to-indentation)
+
         (when (dart-in-string-p)
           (throw 'result `((string))))
+
         (when (dart-in-comment-p)
           (throw 'result `((comment))))
+
         (when (dart-top-level-p)
           (throw 'result `((top-level))))
+
         (when (member (char-after (point)) '(?\) ?\] ?\}))
             (backward-up-list)
             (dart-beginning-of-statement-2)
             (throw 'result `((close ,(point)))))
+
+        (when (dart-in-arglist-p)
+          (message "omg!")
+          (throw 'result `((omg))))
+
+        (let ((annot-cont (dart-annotation-continued-p)))
+          (when annot-cont
+            (throw 'result `((annotation-cont ,annot-cont)))))
 
         (let ((stmt-cont (dart-statement-continued-p)))
           (when stmt-cont
@@ -886,13 +952,13 @@ This is intended to be called from `before-change-functions'."
           (when (= (char-before (point)) ?\x3b)
             (let ((bos (dart-beginning-of-statement-2)))
               (throw 'result `((statement ,bos))))))
-                  
+
         (save-excursion
           (dart-backward-irrelevant)
           (when (member (char-before (point)) '(?\( ?\[ ?\{))
             (let ((bos (dart-beginning-of-statement-2)))
               (throw 'result `((block-intro ,bos))))))
-                  
+
         ;; (when (dart-in-arglist-p)
         ;;   ;; arglist-intro
         ;;   ;; arglist-cont
@@ -1046,8 +1112,6 @@ will be nil."
   ;; Deletes an overlay/extent object previously retrieved using
   ;; `c-put-overlay'.
   `(delete-overlay ,overlay))
-
-(define-key dart-mode-map (kbd "C-c C-s") 'dart-show-syntactic-information)
 
 ;;; Additional fontification support
 
