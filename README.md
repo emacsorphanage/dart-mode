@@ -13,7 +13,7 @@
 
 ## Installation
 
-1. Add [Marmalade](https://marmalade-repo.org/#download) to your
+1. Add [Melpa](https://melpa.org/#/getting-started) to your
    `package-archives` if you don't already have it.
 
 2.  Install dart-mode via:
