@@ -918,7 +918,10 @@ otherwise.  If no FILE is given, then this will default to the variable
 The analysis roots are directories that contain Dart files. The analysis server
 analyzes all Dart files under the analysis roots and provides information about
 them when requested."
-  (add-to-list 'dart-analysis-roots dir)
+  (add-to-list 'dart-analysis-roots
+               (if (equal system-type 'windows-nt)
+                   (replace-regexp-in-string (rx "/") (rx "\\") dir)
+                 dir))
   (dart--send-analysis-roots))
 
 (defun dart--send-analysis-roots ()
