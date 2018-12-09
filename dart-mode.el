@@ -1730,9 +1730,7 @@ This can be customized by setting `dart-formatter-command-override'."
       (when dart-sdk-path
         (concat dart-sdk-path
                 (file-name-as-directory "bin")
-                (if (memq system-type '(ms-dos windows-nt))
-                    "dartfmt.exe"
-                  "dartfmt")))))
+                "dartfmt"))))
 
 (defvar dart--formatter-compilation-regexp
   '("^line \\([0-9]+\\), column \\([0-9]+\\) of \\([^ \n]+\\):" 3 1 2)
