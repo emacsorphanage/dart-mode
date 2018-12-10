@@ -1057,7 +1057,10 @@ SUBSCRIPTION is an opaque object provided by
   (dart-info (format "Checking syntax for %s" (current-buffer)))
   (dart--analysis-server-send
    "analysis.getErrors"
-   `((file . ,(buffer-file-name)))
+   `((file . ,(if (equal system-type 'windows-nt)
+                  (replace-regexp-in-string (rx "/") (rx "\\")
+                                            (buffer-file-name))
+                (buffer-file-name))))
    (-let [buffer (current-buffer)]
      (lambda (response)
        (dart--report-errors response buffer callback)))))
