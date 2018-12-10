@@ -32,6 +32,13 @@ path.
 If you've installed `flutter` but not `dart`, you might try `(setq
 dart-sdk-path "/path/to/flutter/bin/cache/dart-sdk/")`.
 
+If you're on Windows, you will need to make sure that the `diff`
+executable is available to Emacs. One way to do this is install from
+http://gnuwin32.sourceforge.net/packages/diffutils.htm and add
+something like the following to your init file. `(setq exec-path
+(append exec-path '("C:/Program Files (x86)/GnuWin32/bin")))`
+
+
 Note that user code that wants to run Dart scripts can use the
 `dart-executable-path` function to locate the `dart` executable itself in the
 SDK's `bin/` directory.
