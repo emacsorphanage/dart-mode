@@ -805,6 +805,11 @@ object which can be passed to `dart--analysis-server-unsubscribe'.")
                       msg))
       (insert "\n"))))
 
+(defun dart--normalize-path (path)
+  (if (equal system-type 'windows-nt)
+      (replace-regexp-in-string (rx "/") (rx "\\") path)
+    path))
+
 (defun dart--start-analysis-server-for-current-buffer ()
   "Initialize Dart analysis server for current buffer.
 
@@ -867,11 +872,11 @@ errors for the current contents of the buffer, not whatever is saved to disk."
   (when buffer-file-name
     (dart--analysis-server-send
      "analysis.updateContent"
-     `((files .
-              ((,buffer-file-name . ((type . "add")
-                                     (content . ,(save-restriction
-                                                   (widen)
-                                                   (buffer-string)))))))))))
+     `((files
+        . ((,(dart--normalize-path buffer-file-name)
+            . ((type . "add")
+               (content
+                . ,(save-restriction (widen) (buffer-string)))))))))))
 
 (defun dart-change-analysis-overlay
     (change-begin change-end change-before-length)
@@ -883,7 +888,7 @@ length of the text before the change is CHANGE-BEFORE-LENGTH. See also
   (dart--analysis-server-send
    "analysis.updateContent"
    `((files
-      . ((,buffer-file-name
+      . ((,(dart--normalize-path buffer-file-name)
           . ((type . "change")
              (edits
               . (((offset . ,(- change-begin 1))
@@ -897,7 +902,7 @@ length of the text before the change is CHANGE-BEFORE-LENGTH. See also
 See also `dart-add-analysis-overlay'."
   (dart--analysis-server-send
    "analysis.updateContent"
-   `((files . ((,buffer-file-name . ((type . "remove"))))))))
+   `((files . ((,(dart--normalize-path buffer-file-name) . ((type . "remove"))))))))
 
 (defun dart-add-analysis-root-for-file (&optional file)
   "Add the given FILE's root to the analysis server's analysis roots.
@@ -918,10 +923,7 @@ otherwise.  If no FILE is given, then this will default to the variable
 The analysis roots are directories that contain Dart files. The analysis server
 analyzes all Dart files under the analysis roots and provides information about
 them when requested."
-  (add-to-list 'dart-analysis-roots
-               (if (equal system-type 'windows-nt)
-                   (replace-regexp-in-string (rx "/") (rx "\\") dir)
-                 dir))
+  (add-to-list 'dart-analysis-roots (dart--normalize-path dir))
   (dart--send-analysis-roots))
 
 (defun dart--send-analysis-roots ()
@@ -1057,10 +1059,7 @@ SUBSCRIPTION is an opaque object provided by
   (dart-info (format "Checking syntax for %s" (current-buffer)))
   (dart--analysis-server-send
    "analysis.getErrors"
-   `((file . ,(if (equal system-type 'windows-nt)
-                  (replace-regexp-in-string (rx "/") (rx "\\")
-                                            (buffer-file-name))
-                (buffer-file-name))))
+   `((file . ,(dart--normalize-path (buffer-file-name))))
    (-let [buffer (current-buffer)]
      (lambda (response)
        (dart--report-errors response buffer callback)))))
@@ -1109,7 +1108,7 @@ reported to CALLBACK."
 With a prefix argument, opens a new buffer rather than using the
 minibuffer."
   (interactive "P")
-  (-when-let (filename (buffer-file-name))
+  (-when-let (filename (dart--normalize-path (buffer-file-name)))
     (let ((show-in-buffer show-in-buffer)
           (buffer (current-buffer))
           (pos (point)))
@@ -1241,7 +1240,7 @@ minibuffer."
 
 (defun dart-goto ()
   (interactive)
-  (-when-let (filename (buffer-file-name))
+  (-when-let (filename (dart--normalize-path (buffer-file-name)))
     (dart--analysis-server-send
      "analysis.getNavigation"
      `(("file" . ,filename) ("offset" . ,(point)) ("length" . 0))
@@ -1265,7 +1264,7 @@ minibuffer."
 
 (defun dart-find-refs (pos &optional include-potential)
   (interactive "dP")
-  (-when-let (filename (buffer-file-name))
+  (-when-let (filename (dart--normalize-path (buffer-file-name)))
     (dart--analysis-server-send
      "search.findElementReferences"
      `(("file" . ,filename)
@@ -1468,7 +1467,7 @@ stayas in place when the parameter is overwritten.")
   (setq dart--last-expand-index nil)
   (setq dart--last-expand-subscription nil)
 
-  (-when-let (filename (buffer-file-name))
+  (-when-let (filename (dart--normalize-path (buffer-file-name)))
     (dart--analysis-server-send
      "completion.getSuggestions"
      `(("file" . ,filename)
