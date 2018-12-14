@@ -265,7 +265,11 @@ Only set in `dart-popup-mode'.")
 (defcustom dart-sdk-path
   ;; Use Platform.resolvedExecutable so that this logic works through symlinks
   ;; and wrapper scripts.
-  (-when-let (dart (executable-find "dart"))
+  (-when-let (dart (or (executable-find "dart")
+                       (let ((flutter (executable-find "flutter")))
+                         (when flutter
+                           (expand-file-name "cache/dart-sdk/bin/dart"
+                                             (file-name-directory flutter))))))
     (dart--with-temp-file input
       (with-temp-file input (insert "
         import 'dart:io';
