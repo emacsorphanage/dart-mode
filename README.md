@@ -13,6 +13,8 @@
 
 ## Installation
 
+[![Join the chat at https://gitter.im/dart-mode/Lobby](https://badges.gitter.im/dart-mode/Lobby.svg)](https://gitter.im/dart-mode/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 1. Add [Melpa](https://melpa.org/#/getting-started) to your
    `package-archives` if you don't already have it.
 
