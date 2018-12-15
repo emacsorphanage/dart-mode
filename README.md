@@ -123,7 +123,8 @@ press `M-?` again to select the second parameter, and so on.
 If the analysis server isn't enabled for the current buffer, this will fall back
 to whatever command is assigned to `M-/` outside of Dart mode (`dabbrev-expand`
 in vanilla Emacs). This will usually pick up any custom key bindings, but if it
-doesn't you can manually choose a fallback by setting the `
+doesn't you can manually choose a fallback by setting the `dart-expand-fallback`
+variable.
 
 ## Dart Formatter
 
