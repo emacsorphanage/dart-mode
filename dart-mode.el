@@ -593,24 +593,34 @@ indentation levels from right to left."
          (t (throw 'result nil)))))))
 
 (setq dart-font-lock-defaults
-      `((,dart--async-keywords-re
-         ,(regexp-opt dart--keywords 'words)
-         (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
-         (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
-         (,dart--hex-number-re                 . (1 font-lock-constant-face))
-         (,dart--number-re                     . (1 font-lock-constant-face))
-         (,dart--metadata-re                   . font-lock-constant-face)
-         (,(regexp-opt dart--types 'words)     . font-lock-type-face)
-         (,dart--types-re                      . font-lock-type-face)
-         (dart--function-declaration-func      . font-lock-function-name-face)
-         (dart--declared-identifier-func       . font-lock-variable-name-face)
-         (dart--declared-identifier-anchor-func
-          . (dart--declared-identifier-next-func
-             nil
-             nil
-             (0 font-lock-variable-name-face)))
-         (dart--string-interpolation-id-func   (0 font-lock-variable-name-face t))
-         (dart--string-interpolation-exp-func  (0 font-lock-variable-name-face t)))))
+      '((dart-font-lock-keywords-1 dart-font-lock-keywords-1
+                                   dart-font-lock-keywords-2
+                                   dart-font-lock-keywords-3)))
+
+(setq dart-font-lock-keywords-1
+      '((dart--function-declaration-func       . font-lock-function-name-face)))
+
+(setq dart-font-lock-keywords-2
+      `(,dart--async-keywords-re
+        ,(regexp-opt dart--keywords 'words)
+        (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
+        (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
+        (,dart--hex-number-re                 . (1 font-lock-constant-face))
+        (,dart--number-re                     . (1 font-lock-constant-face))
+        (,dart--metadata-re                   . font-lock-constant-face)
+        (,(regexp-opt dart--types 'words)     . font-lock-type-face)
+        (,dart--types-re                      . font-lock-type-face)
+        (dart--function-declaration-func      . font-lock-function-name-face)
+        (dart--declared-identifier-func       . font-lock-variable-name-face)
+        (dart--declared-identifier-anchor-func
+         . (dart--declared-identifier-next-func
+            nil
+            nil
+            (0 font-lock-variable-name-face)))
+        (dart--string-interpolation-id-func   (0 font-lock-variable-name-face t))
+        (dart--string-interpolation-exp-func  (0 font-lock-variable-name-face t))))
+
+(setq dart-font-lock-keywords-3 dart-font-lock-keywords-2)
 
 (setq dart-string-delimiter (rx (and
                             ;; Match even number of backslashes.
