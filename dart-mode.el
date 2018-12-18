@@ -87,6 +87,7 @@
 (require 'json)
 (require 'rx)
 (require 's)
+(require 'subr-x)
 
 ;;; Utility functions and macros
 
