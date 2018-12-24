@@ -1,10 +1,12 @@
 ;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
 ;; Author: Natalie Weizenbaum
-;; URL: https://github.com/nex3/dart-mode
+;;      Brady Trainor <mail@bradyt.com>
+;; Maintainer: Brady Trainor <mail@bradyt.com>
+;; URL: https://github.com/bradyt/dart-mode
 ;; Version: 1.0.4
 ;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.10"))
-;; Keywords: language
+;; Keywords: languages
 
 ;; Copyright (C) 2011 Google Inc.
 ;;
@@ -56,19 +58,11 @@
 
 ;;; Commentary:
 
-;; To install, see https://github.com/nex3/dart-mode/blob/master/README.md
+;; To install, see https://github.com/bradyt/dart-mode/blob/master/README.org
 ;;
 ;; Known bugs:
 ;;
-;; * Multiline strings using """ and ''' are not recognized. They fontify
-;;   correctly, but only because they look like three strings in a row.
-;; * In a map with identifier keys, the first key is fontified like a label.
-;; * Return values for operator methods aren't fontified correctly.
 ;; * Untyped parameters aren't fontified correctly.
-;; * Quotes immediately after string interpolation are marked as unclosed.
-;; * Sexp movement doesn't properly ignore quotes in interpolation.
-;; * Methods using "=>" can cause indentation woes.
-;; * C and C++ modes seem to be hosed.
 
 ;; Definitions adapted from go-mode.el are
 ;;
