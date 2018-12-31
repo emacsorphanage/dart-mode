@@ -25,7 +25,13 @@
 
 ;; This file contains several functions and variables adapted from the
 ;; code in https://github.com/dominikh/go-mode.el
+
+;; Definitions adapted from go-mode.el are
 ;;
+;; gofmt-command gofmt-args gofmt-show-errors gofmt go--apply-rcs-patch
+;; gofmt--kill-error-buffer gofmt--process-errors gofmt-before-save
+;; go--goto-line go--delete-whole-line
+
 ;; go-mode.el uses this license:
 ;;
 ;; Copyright (c) 2014 The go-mode Authors. All rights reserved.
@@ -58,17 +64,10 @@
 
 ;;; Commentary:
 
-;; To install, see https://github.com/bradyt/dart-mode/blob/master/README.org
-;;
-;; Known bugs:
-;;
-;; * Untyped parameters aren't fontified correctly.
+;; Major mode for editing Dart files.
 
-;; Definitions adapted from go-mode.el are
-;;
-;; gofmt-command gofmt-args gofmt-show-errors gofmt go--apply-rcs-patch
-;; gofmt--kill-error-buffer gofmt--process-errors gofmt-before-save
-;; go--goto-line go--delete-whole-line
+;; Provides basic syntax highlighting and indentation. Also provides
+;; formatting via the dartfmt and diff executables.
 
 ;;; Code:
 
@@ -384,49 +383,49 @@ indentation levels from right to left."
 
 ;;; Additional fontification support
 
-(setq dart--file-directives
-      '("as" "deferred" "export" "hide" "import" "library" "of" "part"
-      "show"))
+(defvar dart--file-directives
+  '("as" "deferred" "export" "hide" "import" "library" "of" "part"
+    "show"))
 
-(setq dart--builtins
-      ;; ECMA 408; Section: Identifier Reference
-      ;; "Built-in identifiers"
-      '("abstract" "as" "deferred" "dynamic" "export" "external"
-        "hide" "factory" "get" "implements" "import" "library" "of"
-        "operator" "part" "set" "show" "static" "typedef"))
+(defvar dart--builtins
+  ;; ECMA 408; Section: Identifier Reference
+  ;; "Built-in identifiers"
+  '("abstract" "as" "deferred" "dynamic" "export" "external" "hide"
+    "factory" "get" "implements" "import" "library" "of" "operator"
+    "part" "set" "show" "static" "typedef"))
 
-(setq dart--keywords
-      ;; ECMA 408; Section: Reserved Words
-      '("assert" "break" "case" "catch" "class" "const" "continue"
-        "default" "do" "else" "enum" "extends" "final" "finally" "for"
-        "if" "in" "is" "new" "rethrow" "return" "super" "switch"
-        "this" "throw" "try" "var" "while" "with"))
+(defvar dart--keywords
+  ;; ECMA 408; Section: Reserved Words
+  '("assert" "break" "case" "catch" "class" "const" "continue"
+    "default" "do" "else" "enum" "extends" "final" "finally" "for"
+    "if" "in" "is" "new" "rethrow" "return" "super" "switch" "this"
+    "throw" "try" "var" "while" "with"))
 
-(setq dart--types '("bool" "double" "dynamic" "int" "num" "void"))
+(defvar dart--types '("bool" "double" "dynamic" "int" "num" "void"))
 
-(setq dart--constants '("false" "null" "true"))
+(defvar dart--constants '("false" "null" "true"))
 
-(setq dart--async-keywords-re (rx word-start
-                                  (or "async" "await" "sync" "yield")
-                                  word-end
-                                  (zero-or-one ?*)))
+(defvar dart--async-keywords-re (rx word-start
+                                    (or "async" "await" "sync" "yield")
+                                    word-end
+                                    (zero-or-one ?*)))
 
-(setq dart--number-re (rx symbol-start
-                          (zero-or-one ?-)
-                          (group (or (and (one-or-more digit)
-                                          (zero-or-one
-                                           (and ?. (one-or-more digit))))
-                                     (and ?. (one-or-more digit)))
-                                 (zero-or-one (and (or ?e ?E)
-                                                   (zero-or-one (or ?+ ?-))
-                                                   (one-or-more digit))))))
+(defvar dart--number-re (rx symbol-start
+                            (zero-or-one ?-)
+                            (group (or (and (one-or-more digit)
+                                            (zero-or-one
+                                             (and ?. (one-or-more digit))))
+                                       (and ?. (one-or-more digit)))
+                                   (zero-or-one (and (or ?e ?E)
+                                                     (zero-or-one (or ?+ ?-))
+                                                     (one-or-more digit))))))
 
-(setq dart--hex-number-re (rx symbol-start
-                              (zero-or-one ?-)
-                              (group (or "0x" "0X")
-                                     (one-or-more (any (?a . ?f)
-                                                       (?A . ?F)
-                                                       digit)))))
+(defvar dart--hex-number-re (rx symbol-start
+                                (zero-or-one ?-)
+                                (group (or "0x" "0X")
+                                       (one-or-more (any (?a . ?f)
+                                                         (?A . ?F)
+                                                         digit)))))
 
 (defun dart--identifier (&optional case)
   `(and (or word-start symbol-start)
@@ -436,11 +435,17 @@ indentation levels from right to left."
            'alpha)
         (zero-or-more (or ?$ ?_ alnum))))
 
-(setq dart--metadata-re (rx ?@ (eval (dart--identifier))))
+(defvar dart--metadata-re (rx ?@ (eval (dart--identifier))))
 
-(setq dart--types-re (rx (eval (dart--identifier 'upper))))
+(defvar dart--types-re (rx (eval (dart--identifier 'upper))))
 
 (defun dart--string-interpolation-id-func (limit)
+  "Font-lock matcher for string interpolation identifiers.
+
+These have the form $variableName.
+
+Can fontify entire match with group 0, or using group 1 for sigil,
+group 2 for variableName."
   (catch 'result
     (let (data end syntax)
       (while (re-search-forward (rx (group ?$)
@@ -451,6 +456,7 @@ indentation levels from right to left."
         (setq data (match-data))
         (setq end (match-end 2))
         (setq syntax (syntax-ppss))
+        ;; Check that we are in a string and not in a raw string
         (when (and (nth 3 syntax)
                    (or (= (nth 8 syntax) 1)
                        (not (eq (char-before (nth 8 syntax)) ?r))))
@@ -462,22 +468,31 @@ indentation levels from right to left."
       (throw 'result nil))))
 
 (defun dart--string-interpolation-exp-func (limit)
-  ;; While there are still ${ in non-raw strings to be found.
-  ;; While point has positive depth and is in string.
-  ;; Move forward.
-  ;; If depth hits zero, return match.
-  ;; If we leave string, search again.
-  ;; When we run out of search results, return nil.
+  "Font-lock matcher for string interpolation expressions.
+
+These have the form ${expression}.
+
+Can fontify entire match with group 0, or using group 1 for sigil,
+groups 2 and 4 for curly brackets, and 3 for contents."
   (catch 'result
     (let (sigil beg open close end syntax depth)
+      ;; Loop and put point after ${
       (while (and (search-forward "${" limit t)
+                  ;; Check that we are in a string and not in a raw string
                   (save-excursion
                     (and (nth 3 (syntax-ppss))
                          (not (eq (char-before (nth 8 (syntax-ppss))) ?r)))))
+        ;; "a string with ${someInterpolation + aValue} inside of it."
+        ;;                ^^^                         ^^
+        ;;                |||                         ||
+        ;;         sigil -+|+- open            close -++- end
+        ;;                 +- beg
         (setq open (point))
         (setq beg (- open 1))
         (setq sigil (- open 2))
         (setq depth 1)
+        ;; Move forward until limit, while depth is positive and we
+        ;; are inside string.
         (while (and (> depth 0)
                     (< (point) limit)
                     (nth 3 (syntax-ppss)))
@@ -487,6 +502,8 @@ indentation levels from right to left."
                                  (_ 0))))
           (forward-char))
         (setq end (point))
+        ;; If depth is zero, we have found a closing } within string
+        ;; and before limit. Set `match-data', `point', and return `t'.
         (when (= depth 0)
           (setq close (1- end))
           (set-match-data (list sigil end
@@ -496,10 +513,20 @@ indentation levels from right to left."
                                 close end))
           (goto-char end)
           (throw 'result t))
+        ;; If the candidate did not meet criteria, put point at end
+        ;; and search again.
         (goto-char end))
+      ;; When there are no more candidate "${", return nil.
       (throw 'result nil))))
 
 (defun dart--function-declaration-func (limit)
+  "Font-lock matcher function for function declarations.
+
+Matches function declarations before LIMIT that look like,
+
+  \"lowercaseIdentifier([...]) [[a]sync[*], {, =>]\"
+
+For example, \"main\" in \"void main() async\" would be matched."
   (catch 'result
     (let (beg end)
       (while (re-search-forward
@@ -519,6 +546,13 @@ indentation levels from right to left."
       (throw 'result nil))))
 
 (defun dart--declared-identifier-func (limit)
+  "Font-lock matcher function for declared identifiers.
+
+Matches declared identifiers before LIMIT that look like,
+
+  \"finalConstVarOrType lowercaseIdentifier\"
+
+For example, \"height\" in \"const int height\" would be matched."
   (catch 'result
     (let (beg end)
       (while (re-search-forward
@@ -535,6 +569,7 @@ indentation levels from right to left."
               limit t)
         (setq beg (match-beginning 2))
         (setq end (match-end 2))
+        ;; Check for false positives
         (when (not (member (match-string 2)
                            '("bool" "double" "dynamic" "int" "num" "void"
                              "var"
@@ -546,11 +581,17 @@ indentation levels from right to left."
       (throw 'result nil))))
 
 (defun dart--in-parenthesized-expression-or-formal-parameter-list-p ()
+  "Returns `t' if `point' is in parentheses, otherwise `nil'.
+
+In particular, parenthesized expressions or formal parameter lists."
   (save-excursion
     (catch 'result
+      ;; Attempt to jump out of parentheses.
       (condition-case nil
           (backward-up-list)
         (scan-error (throw 'result nil)))
+      ;; If we've only jumped out of optional or named section of
+      ;; formal parameters, try to jump again.
       (when (member (char-after (point)) '(?\[ ?\{))
         (condition-case nil
             (backward-up-list)
@@ -558,6 +599,21 @@ indentation levels from right to left."
       (throw 'result (= (char-after (point)) ?\()))))
 
 (defun dart--declared-identifier-anchor-func (limit)
+  "Font-lock matcher for declared identifier.
+
+Uses `dart--declared-identifier-func' to find candidates before
+LIMIT, and checks that they are not in parentheses.
+
+This matcher is an anchor to match multiple identifiers in a
+single variable declaration. From ECMA-408,
+
+  variableDeclaration:
+    declaredIdentifier (', ' identifier)*
+  ;
+
+After this function sets anchor, font-lock will use the function
+`dart--declared-identifier-next-func' to find subsequent
+identifiers."
   (catch 'result
     (let (data)
       (while (dart--declared-identifier-func limit)
@@ -570,13 +626,26 @@ indentation levels from right to left."
       (throw 'result nil))))
 
 (defun dart--declared-identifier-next-func (limit)
+  "Font-lock matcher for subsequent identifiers.
+
+For use after `dart--declared-identifier-anchor-func' sets
+anchor, this function will look for subsequent identifers to
+fontify as declared variables. From ECMA-408,
+
+  variableDeclaration:
+    declaredIdentifier (', ' identifier)*
+  ;"
   (catch 'result
     (let ((depth (car (syntax-ppss))))
       (while t
         (cond
+         ;; If point is followed by semi-colon, we are done.
          ((or (= (char-after (point)) ?\x3b) ; ?;
               (< (car (syntax-ppss)) depth))
           (throw 'result nil))
+         ;; If point is followed by comma, and we are still at same
+         ;; depth, then attempt to match another identifier, otherwise
+         ;; return nil.
          ((and (= (char-after (point)) ?\x2c) ; ?,
                (= (car (syntax-ppss)) depth))
           (if (looking-at (rx ?\x2c
@@ -587,52 +656,57 @@ indentation levels from right to left."
                      (goto-char (match-end 0))
                      (throw 'result t))
             (throw 'result nil)))
+         ;; Otherwise, if we are still before `point-max' (shouldn't
+         ;; this be `limit'? May be a bad attempt to deal with
+         ;; multiline searches. Should research how this is done with
+         ;; font-lock.), move forward.
          ((< (point) (point-max))
           (forward-char))
+         ;; Otherwise, return nil.
          (t (throw 'result nil)))))))
 
-(setq dart-font-lock-defaults
-      '((dart-font-lock-keywords-1 dart-font-lock-keywords-1
-                                   dart-font-lock-keywords-2
-                                   dart-font-lock-keywords-3)))
+(defvar dart-font-lock-defaults
+  '((dart-font-lock-keywords-1 dart-font-lock-keywords-1
+                               dart-font-lock-keywords-2
+                               dart-font-lock-keywords-3)))
 
-(setq dart-font-lock-keywords-1
-      `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
-        (dart--function-declaration-func            . font-lock-function-name-face)))
+(defvar dart-font-lock-keywords-1
+  `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
+    (dart--function-declaration-func            . font-lock-function-name-face)))
 
-(setq dart-font-lock-keywords-2
-      `(,dart--async-keywords-re
-        ,(regexp-opt dart--keywords 'words)
-        (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
-        (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
-        (,dart--hex-number-re                 . (1 font-lock-constant-face))
-        (,dart--number-re                     . (1 font-lock-constant-face))
-        (,dart--metadata-re                   . font-lock-constant-face)
-        (,(regexp-opt dart--types 'words)     . font-lock-type-face)
-        (,dart--types-re                      . font-lock-type-face)
-        (dart--function-declaration-func      . font-lock-function-name-face)))
+(defvar dart-font-lock-keywords-2
+  `(,dart--async-keywords-re
+    ,(regexp-opt dart--keywords 'words)
+    (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
+    (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
+    (,dart--hex-number-re                 . (1 font-lock-constant-face))
+    (,dart--number-re                     . (1 font-lock-constant-face))
+    (,dart--metadata-re                   . font-lock-constant-face)
+    (,(regexp-opt dart--types 'words)     . font-lock-type-face)
+    (,dart--types-re                      . font-lock-type-face)
+    (dart--function-declaration-func      . font-lock-function-name-face)))
 
-(setq dart-font-lock-keywords-3
-      (append
-       dart-font-lock-keywords-2
-       `((dart--declared-identifier-func       . font-lock-variable-name-face)
-         (dart--declared-identifier-anchor-func
-          . (dart--declared-identifier-next-func
-             nil
-             nil
-             (0 font-lock-variable-name-face)))
-         (dart--string-interpolation-id-func   (0 font-lock-variable-name-face t))
-         (dart--string-interpolation-exp-func  (0 font-lock-variable-name-face t)))))
+(defvar dart-font-lock-keywords-3
+  (append
+   dart-font-lock-keywords-2
+   `((dart--declared-identifier-func      . font-lock-variable-name-face)
+     (dart--declared-identifier-anchor-func
+      . (dart--declared-identifier-next-func
+         nil
+         nil
+         (0 font-lock-variable-name-face)))
+     (dart--string-interpolation-id-func  (0 font-lock-variable-name-face t))
+     (dart--string-interpolation-exp-func (0 font-lock-variable-name-face t)))))
 
-(setq dart-string-delimiter (rx (and
-                            ;; Match even number of backslashes.
-                            (or (not (any ?\\ ?\' ?\")) point
-                                ;; Quotes might be preceded by an escaped quote.
-                                (and (or (not (any ?\\)) point) ?\\
-                                     (* ?\\ ?\\) (any ?\' ?\")))
-                            (* ?\\ ?\\)
-                            ;; Match single or triple quotes of any kind.
-                            (group (or  "\"" "\"\"\"" "'" "'''")))))
+(defvar dart-string-delimiter (rx (and
+                                   ;; Match even number of backslashes.
+                                   (or (not (any ?\\ ?\' ?\")) point
+                                       ;; Quotes might be preceded by an escaped quote.
+                                       (and (or (not (any ?\\)) point) ?\\
+                                            (* ?\\ ?\\) (any ?\' ?\")))
+                                   (* ?\\ ?\\)
+                                   ;; Match single or triple quotes of any kind.
+                                   (group (or  "\"" "\"\"\"" "'" "'''")))))
 
 (defconst dart-syntax-propertize-function
   (syntax-propertize-rules
