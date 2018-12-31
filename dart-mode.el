@@ -528,7 +528,7 @@ indentation levels from right to left."
                                    "var"
                                    "get" "set")
                                (eval (dart--identifier 'upper)))
-                           (zero-or-one ?>))
+                           (zero-or-more ?>))
                     (one-or-more (or space ?\C-j))
                     (group (eval (dart--identifier 'lower)))
                     (not (any ?\( alnum ?$ ?_))))
