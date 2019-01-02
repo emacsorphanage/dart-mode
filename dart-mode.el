@@ -670,6 +670,58 @@ fontify as declared variables. From ECMA-408,
          ;; Otherwise, return nil.
          (t (throw 'result nil)))))))
 
+(defun dart--anonymous-function-matcher (limit)
+  "Font-lock matcher for start of anonymous functions.
+
+Looks for opening parenthesis, tries to jump to opening
+parenthesis, ensure it is not preceded by for, while, etc. Then
+tries to jump to closing parenthesis and check if followed by \"
+{\" or \" =>\".
+
+Used with `dart--untyped-parameter-anchored-matcher' to fontify
+untyped parameters. For example, in
+
+  (untypedParameter) => untypedParameter.length"
+  (catch 'result
+    (let (beg end)
+      (while (search-forward "(" limit t)
+        (setq beg (match-beginning 0))
+        (setq end (match-end 0))
+        (unless (looking-back (rx (or (and (or "do" "for" "if" "switch" "while")
+                                           space)
+                                      "super")
+                                  ?\())
+          (condition-case nil
+              (up-list)
+            (scan-error (throw 'result nil)))
+          (when (looking-at (rx space (or ?\{ "=>")))
+            (set-match-data (list beg end))
+            (goto-char end)
+            (throw 'result t))
+          (goto-char end)))
+      (throw 'result nil))))
+
+(defun dart--untyped-parameter-anchored-matcher (limit)
+  "Font-lock anchored-matcher for untyped parameters.
+
+Searches forward for for lowercase idenitifer and ensures depth
+is still same.
+
+Used with `dart--anonymous-function-matcher' to fontify
+untyped parameters. For example, in
+
+  (untypedParameter) => untypedParameter.length"
+  (catch 'result
+    (if (equal (char-after) ?\))
+        (throw 'result nil))
+    (let ((depth (car (syntax-ppss))))
+      (while (re-search-forward
+              (rx (eval (dart--identifier 'lower))))
+        (if (< (car (syntax-ppss)) depth)
+            (throw 'result nil)
+          (throw 'result t))))
+    (throw 'result nil)))
+
 (defvar dart-font-lock-defaults
   '((dart-font-lock-keywords-1 dart-font-lock-keywords-1
                                dart-font-lock-keywords-2
@@ -698,6 +750,11 @@ fontify as declared variables. From ECMA-408,
    `((dart--declared-identifier-func      . font-lock-variable-name-face)
      (dart--declared-identifier-anchor-func
       . (dart--declared-identifier-next-func
+         nil
+         nil
+         (0 font-lock-variable-name-face)))
+     (dart--anonymous-function-matcher
+      . (dart--untyped-parameter-anchored-matcher
          nil
          nil
          (0 font-lock-variable-name-face)))
