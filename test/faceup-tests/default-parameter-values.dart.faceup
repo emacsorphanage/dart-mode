@@ -1,0 +1,10 @@
+«t:void» «f:doStuff»(
+    {«t:List»<«t:int»> «v:list» = «k:const» [«c:1», «c:2», «c:3»],
+    «t:Map»<«t:String», «t:String»> «v:gifts» = «k:const» {
+      «s:'first'»: «s:'paper'»,
+      «s:'second'»: «s:'cotton'»,
+      «s:'third'»: «s:'leather'»
+    }}) {
+  print(«s:'list:  »«v:$list»«s:'»);
+  print(«s:'gifts: »«v:$gifts»«s:'»);
+}

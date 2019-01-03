@@ -1,0 +1,40 @@
+«x:// Import the math library to get access to the sqrt function.
+»«b:import» «s:'dart:math'» «b:as» math;
+
+«x:// Create a class for Point.
+»«k:class» «t:Point» {
+
+  «x:// Final variables cannot be changed once they are assigned.
+»  «x:// Create two instance variables.
+»  «k:final» «t:num» «v:x», y;
+
+  «x:// A constructor, with syntactic sugar for setting instance variables.
+»  «x:// The constructor has two mandatory parameters
+»  «t:Point»(«k:this».x, «k:this».y);
+
+  «x:// A named constructor with an initializer list.
+»  «t:Point».origin()
+      : x = «c:0»,
+        y = «c:0»;
+
+  «x:// A method.
+»  «t:num» «f:distanceTo»(«t:Point» «v:other») {
+    «k:var» «v:dx» = x - other.x;
+    «k:var» «v:dy» = y - other.y;
+    «k:return» math.sqrt(dx * dx + dy * dy);
+  }
+
+  «x:// Example of Operator Overloading
+»  «t:Point» «b:operator» +(«t:Point» «v:other») => «t:Point»(x + other.x, y + other.y);
+  «x:// When you Instantiating a class such as Point, in Dart 2+, new is 
+»  «x:// an optional word
+»}
+
+«x:// All Dart programs start with main().
+»«t:void» «f:main»() {
+  «x:// Instantiate point objects.
+»  «k:var» «v:p1» = «t:Point»(«c:10», «c:10»);
+  «k:var» «v:p2» = «t:Point».origin();
+  «k:var» «v:distance» = p1.distanceTo(p2);
+  print(distance);
+}

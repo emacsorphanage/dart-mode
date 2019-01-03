@@ -1,0 +1,4 @@
+«k:var» «v:list» = [«s:'apples'», «s:'bananas'», «s:'oranges'»];
+list.forEach((«v:item») {
+  print(«s:'»«v:${list.indexOf(item)}»«s:: »«v:$item»«s:'»);
+});

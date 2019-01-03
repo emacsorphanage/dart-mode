@@ -1,0 +1,7 @@
+«t:String» «f:say»(«t:String» «v:from», «t:String» «v:msg», [«t:String» «v:device»]) {
+  «k:var» «v:result» = «s:'»«v:$from»«s: says »«v:$msg»«s:'»;
+  «k:if» (device != «c:null») {
+    result = «s:'»«v:$result»«s: with a »«v:$device»«s:'»;
+  }
+  «k:return» result;
+}

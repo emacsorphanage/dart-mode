@@ -1,0 +1,9 @@
+«t:int» «f:fib»(«t:int» «v:n») => (n > «c:2») ? (fib(n - «c:1») + fib(n - «c:2»)) : «c:1»;
+«x:// this is a fibonacci function implementation with a ternary operator in Dart
+// this code shall be read as:
+// If int n > 2, return fib(n - 1) + fib(n - 2); 
+// otherwise, return int 1 as result
+»
+«t:void» «f:main»() {
+  print(«s:'fib(20) = »«v:${fib(20)}»«s:'»);
+}

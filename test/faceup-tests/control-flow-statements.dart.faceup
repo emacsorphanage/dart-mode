@@ -1,0 +1,65 @@
+«k:if» (isRaining()) {
+  you.bringRainCoat();
+} «k:else» «k:if» (isSnowing()) {
+  you.wearJacket();
+} «k:else» {
+  car.putTopDown();
+}
+«k:var» «v:message» = «t:StringBuffer»(«s:'Dart is fun'»);
+«k:for» («k:var» «v:i» = «c:0»; i < «c:5»; i++) {
+  message.write(«s:'!'»);
+}
+«k:var» «v:collection» = [«c:0», «c:1», «c:2»];
+«k:for» («k:var» «v:x» «k:in» collection) {
+  print(x); «x:// 0 1 2
+»}
+«k:while» (!isDone()) {
+  doSomething();
+}
+«k:do» {
+  printLine();
+} «k:while» (!atEndOfPage());
+«k:while» («c:true») {
+  «k:if» (shutDownRequested()) «k:break»;
+  processIncomingRequests();
+}
+«k:for» («t:int» «v:i» = «c:0»; i < candidates.length; i++) {
+  «k:var» «v:candidate» = candidates[i];
+  «k:if» (candidate.yearsExperience < «c:5») {
+    «k:continue»;
+  }
+  candidate.interview();
+}
+candidates
+    .where((«v:c») => c.yearsExperience >= «c:5»)
+    .forEach((«v:c») => c.interview());
+«k:var» «v:command» = «s:'OPEN'»;
+«k:switch» (command) {
+  «k:case» «s:'CLOSED'»:
+    executeClosed();
+    «k:break»;
+  «k:case» «s:'PENDING'»:
+    executePending();
+    «k:break»;
+  «k:case» «s:'APPROVED'»:
+    executeApproved();
+    «k:break»;
+  «k:case» «s:'DENIED'»:
+    executeDenied();
+    «k:break»;
+  «k:case» «s:'OPEN'»:
+    executeOpen();
+    «k:break»;
+  «k:default»:
+    executeUnknown();
+}
+«x:// Make sure the variable has a non-null value.
+»«k:assert»(text != «c:null»);
+
+«x:// Make sure the value is less than 100.
+»«k:assert»(number < «c:100»);
+
+«x:// Make sure this is an https URL.
+»«k:assert»(urlString.startsWith(«s:'https'»));
+«k:assert»(urlString.startsWith(«s:'https'»),
+    «s:'URL (»«v:$urlString»«s:) should start with "https".'»);
