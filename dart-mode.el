@@ -398,8 +398,8 @@ indentation levels from right to left."
   ;; ECMA 408; Section: Reserved Words
   '("assert" "break" "case" "catch" "class" "const" "continue"
     "default" "do" "else" "enum" "extends" "final" "finally" "for"
-    "if" "in" "is" "new" "rethrow" "return" "super" "switch" "this"
-    "throw" "try" "var" "while" "with"))
+    "if" "in" "is" "new" "on" "rethrow" "return" "super" "switch"
+    "this" "throw" "try" "var" "while" "with"))
 
 (defvar dart--types '("bool" "double" "dynamic" "int" "num" "void"))
 
