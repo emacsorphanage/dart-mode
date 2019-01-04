@@ -1,0 +1,3 @@
+«f:main»() {
+  print(«s:'Hello World!'»);
+}

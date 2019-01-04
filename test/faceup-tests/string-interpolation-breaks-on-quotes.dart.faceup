@@ -1,0 +1,3 @@
+«k:class» «t:ArgumentError» «k:extends» «t:Error» {
+  «t:String» «b:get» «v:_errorName» => «s:"Invalid argument${!_hasValue ? "»(s)«s:" : ""}"»;
+}

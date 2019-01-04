@@ -1,0 +1,12 @@
+«k:try» {
+  breedMoreLlamas();
+} «k:on» «t:OutOfLlamasException» {
+  «x:// A specific exception
+»  buyMoreLlamas();
+} «k:on» «t:Exception» «k:catch» («v:e») {
+  «x:// Anything else that is an exception
+»  print(«s:'Unknown exception: »«v:$e»«s:'»);
+} «k:catch» («v:e») {
+  «x:// No specified type, handles all
+»  print(«s:'Something really unknown: »«v:$e»«s:'»);
+}
