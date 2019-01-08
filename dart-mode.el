@@ -439,6 +439,11 @@ indentation levels from right to left."
 
 (defvar dart--types-re (rx (eval (dart--identifier 'upper))))
 
+(defvar dart--constants-re (rx (and word-start
+                                    upper
+                                    (>= 2 (or upper ?_))
+                                    word-end)))
+
 (defun dart--string-interpolation-id-func (limit)
   "Font-lock matcher for string interpolation identifiers.
 
@@ -682,6 +687,7 @@ fontify as declared variables. From ECMA-408,
     (,dart--hex-number-re                 . (1 font-lock-constant-face))
     (,dart--number-re                     . (1 font-lock-constant-face))
     (,dart--metadata-re                   . font-lock-constant-face)
+    (,dart--constants-re                   . font-lock-constant-face)
     (,(regexp-opt dart--types 'words)     . font-lock-type-face)
     (,dart--types-re                      . font-lock-type-face)
     (dart--function-declaration-func      . font-lock-function-name-face)))
