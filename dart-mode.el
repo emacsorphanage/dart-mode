@@ -570,18 +570,14 @@ For example, \"height\" in \"const int height\" would be matched."
                            (zero-or-more ?>))
                     (one-or-more (or space ?\C-j))
                     (group (eval (dart--identifier 'lower)))
-                    (not (any ?\( alnum ?$ ?_))))
+                    (or (any ?\; ?, ?\) ?\] ?})
+                        " =")))
               limit t)
         (setq beg (match-beginning 2))
         (setq end (match-end 2))
-        ;; Check for false positives
-        (when (not (member (match-string 2)
-                           '("bool" "double" "dynamic" "int" "num" "void"
-                             "var"
-                             "get" "set")))
-          (set-match-data (list beg end))
-          (goto-char end)
-          (throw 'result t))
+        (set-match-data (list beg end))
+        (goto-char end)
+        (throw 'result t)
         (goto-char (match-end 1)))
       (throw 'result nil))))
 
