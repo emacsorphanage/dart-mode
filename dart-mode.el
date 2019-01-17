@@ -529,17 +529,21 @@ groups 2 and 4 for curly brackets, and 3 for contents."
 
 Matches function declarations before LIMIT that look like,
 
-  \"lowercaseIdentifier([...]) [[a]sync[*], {, =>]\"
+  \"lowercaseIdentifier[<...>]([...]) [[a]sync[*], {, =>]\"
 
 For example, \"main\" in \"void main() async\" would be matched."
   (catch 'result
     (let (beg end)
       (while (re-search-forward
-              (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+              (rx (group (eval (dart--identifier 'lower))) (or ?< ?\())
+              limit t)
         (setq beg (match-beginning 1))
         (setq end (match-end 1))
         (condition-case nil
             (progn
+              (when (equal (char-before) ?\<)
+                (up-list)
+                (forward-char))
               (up-list)
               (when (looking-at (rx (one-or-more space)
                                     (or "async" "async*" "sync*" "{" "=>")))
@@ -701,7 +705,11 @@ fontify as declared variables. From ECMA-408,
      (dart--string-interpolation-exp-func (0 font-lock-variable-name-face t)))))
 
 (defun dart-syntax-propertize-function (beg end)
-  (dart-syntax-propertize-strings beg end))
+  (dart-syntax-propertize-strings beg end)
+  (funcall (syntax-propertize-rules
+            ((rx (group ?<) word-start) (1 "(>"))
+            ((rx (or letter digit ?$ ?_) (group (one-or-more ?>))) (1 ")<")))
+           beg end))
 
 (defun dart-syntax-propertize-strings (beg end)
   "Sets syntax-table text properties for raw and/or multiline strings.
@@ -1946,6 +1954,8 @@ Key bindings:
   (modify-syntax-entry ?*  ". 23")
   (modify-syntax-entry ?\n "> b")
   (modify-syntax-entry ?\' "\"")
+  (modify-syntax-entry ?$ "w")
+  (modify-syntax-entry ?_ "w")
   (setq-local electric-indent-chars '(?\n ?\) ?\] ?\}))
   (setq-local comment-start "//")
   (setq-local comment-end "")
