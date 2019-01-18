@@ -390,9 +390,10 @@ indentation levels from right to left."
 (defvar dart--builtins
   ;; ECMA 408; Section: Identifier Reference
   ;; "Built-in identifiers"
-  '("abstract" "as" "deferred" "dynamic" "export" "external" "hide"
-    "factory" "get" "implements" "import" "library" "of" "operator"
-    "part" "set" "show" "static" "typedef"))
+  '("abstract" "as" "covariant" "deferred" "dynamic" "export"
+    "external" "hide" "factory" "function" "get" "interface"
+    "implements" "import" "library" "mixin" "of" "operator" "part"
+    "set" "show" "static" "typedef"))
 
 (defvar dart--keywords
   ;; ECMA 408; Section: Reserved Words
