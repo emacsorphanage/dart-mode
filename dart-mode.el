@@ -676,22 +676,31 @@ fontify as declared variables. From ECMA-408,
                                dart-font-lock-keywords-2
                                dart-font-lock-keywords-3)))
 
+(defun dart--list-re-not-method (lst)
+  "Convert a list of strings to a regex that avoids matching methods."
+  (rx-to-string `(and (or bol (not (any ?.)))
+                      word-start
+                      (group (or ,@lst))
+                      word-end)
+                t))
+
 (defvar dart-font-lock-keywords-1
-  `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
-    (dart--function-declaration-func            . font-lock-function-name-face)))
+  `((,(dart--list-re-not-method dart--file-directives) . (1 font-lock-builtin-face))
+    (dart--function-declaration-func                   . font-lock-function-name-face)))
 
 (defvar dart-font-lock-keywords-2
   `(,dart--async-keywords-re
-    ,(regexp-opt dart--keywords 'words)
-    (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
-    (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
-    (,dart--hex-number-re                 . (1 font-lock-constant-face))
-    (,dart--number-re                     . (1 font-lock-constant-face))
-    (,dart--metadata-re                   . font-lock-constant-face)
-    (,dart--constants-re                   . font-lock-constant-face)
-    (,(regexp-opt dart--types 'words)     . font-lock-type-face)
-    (,dart--types-re                      . font-lock-type-face)
-    (dart--function-declaration-func      . font-lock-function-name-face)))
+    (,(dart--list-re-not-method dart--keywords)  . (1 font-lock-keyword-face))
+    (,(dart--list-re-not-method dart--builtins)  . (1 font-lock-builtin-face))
+    (,(dart--list-re-not-method dart--constants) . (1 font-lock-constant-face))
+    (,dart--hex-number-re                        . (1 font-lock-constant-face))
+    (,dart--number-re                            . (1 font-lock-constant-face))
+    (,dart--metadata-re                          . font-lock-constant-face)
+    (,dart--constants-re                         . font-lock-constant-face)
+    (,(regexp-opt dart--types 'words)            . font-lock-type-face)
+    (,dart--types-re                             . font-lock-type-face)
+    (dart--function-declaration-func             . font-lock-function-name-face)
+    (,dart--operator-declaration-re              . (1 font-lock-function-name-face))))
 
 (defvar dart-font-lock-keywords-3
   (append
