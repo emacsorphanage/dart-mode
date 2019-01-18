@@ -428,6 +428,11 @@ indentation levels from right to left."
                                                          (?A . ?F)
                                                          digit)))))
 
+(defvar dart--operator-declaration-re (rx "operator"
+                                          (one-or-more space)
+                                          (group
+                                           (one-or-more (not (any ?\())))))
+
 (defun dart--identifier (&optional case)
   `(and (or word-start symbol-start)
         (zero-or-more (any ?$ ?_))
@@ -686,7 +691,8 @@ fontify as declared variables. From ECMA-408,
 
 (defvar dart-font-lock-keywords-1
   `((,(dart--list-re-not-method dart--file-directives) . (1 font-lock-builtin-face))
-    (dart--function-declaration-func                   . font-lock-function-name-face)))
+    (dart--function-declaration-func                   . font-lock-function-name-face)
+    (,dart--operator-declaration-re                    . (1 font-lock-function-name-face))))
 
 (defvar dart-font-lock-keywords-2
   `(,dart--async-keywords-re
