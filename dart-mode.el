@@ -704,65 +704,55 @@ fontify as declared variables. From ECMA-408,
      (dart--string-interpolation-id-func  (0 font-lock-variable-name-face t))
      (dart--string-interpolation-exp-func (0 font-lock-variable-name-face t)))))
 
-(defvar dart-string-delimiter (rx (and
-                                   ;; Match even number of backslashes.
-                                   (or (not (any ?\\ ?\' ?\")) point
-                                       ;; Quotes might be preceded by an escaped quote.
-                                       (and (or (not (any ?\\)) point) ?\\
-                                            (* ?\\ ?\\) (any ?\' ?\")))
-                                   (* ?\\ ?\\)
-                                   ;; Match single or triple quotes of any kind.
-                                   (group (or  "\"" "\"\"\"" "'" "'''")))))
+(defun dart-syntax-propertize-function (beg end)
+  "Sets syntax-table text properties for raw and/or multiline strings.
 
-(defconst dart-syntax-propertize-function
-  (syntax-propertize-rules
-   (dart-string-delimiter
-    (0 (ignore (dart-syntax-stringify))))))
+We use fences uniformly for consistency.
 
-(defsubst dart-syntax-count-quotes (quote-char &optional point limit)
-  "Count number of quotes around point (max is 3).
-QUOTE-CHAR is the quote char to count.  Optional argument POINT is
-the point where scan starts (defaults to current point), and LIMIT
-is used to limit the scan."
-  (let ((i 0))
-    (while (and (< i 3)
-                (or (not limit) (< (+ point i) limit))
-                (eq (char-after (+ point i)) quote-char))
-      (setq i (1+ i)))
-    i))
+In raw strings, we modify backslash characters to have punctuation
+syntax rather than escape syntax.
 
-(defun dart-syntax-stringify ()
-  "Put `syntax-table' property correctly on single/triple quotes."
-  (let* ((num-quotes (length (match-string-no-properties 1)))
-         (ppss (prog2
-                   (backward-char num-quotes)
-                   (syntax-ppss)
-                 (forward-char num-quotes)))
-         (string-start (and (not (nth 4 ppss)) (nth 8 ppss)))
-         (quote-starting-pos (- (point) num-quotes))
-         (quote-ending-pos (point))
-         (num-closing-quotes
-          (and string-start
-               (dart-syntax-count-quotes
-                (char-before) string-start quote-starting-pos))))
-    (cond ((and string-start (= num-closing-quotes 0))
-           ;; This set of quotes doesn't match the string starting
-           ;; kind. Do nothing.
-           nil)
-          ((not string-start)
-           ;; This set of quotes delimit the start of a string.
-           (put-text-property quote-starting-pos (1+ quote-starting-pos)
-                              'syntax-table (string-to-syntax "|")))
-          ((= num-quotes num-closing-quotes)
-           ;; This set of quotes delimit the end of a string.
-           (put-text-property (1- quote-ending-pos) quote-ending-pos
-                              'syntax-table (string-to-syntax "|")))
-          ((> num-quotes num-closing-quotes)
-           ;; This may only happen whenever a triple quote is closing
-           ;; a single quoted string. Add string delimiter syntax to
-           ;; all three quotes.
-           (put-text-property quote-starting-pos quote-ending-pos
-                              'syntax-table (string-to-syntax "|"))))))
+String interpolation is not handled correctly yet, but the fixes to
+quote characters in multiline strings, and escape characters in raw
+strings, ensures that code outside of strings is not highlighted as
+strings."
+  (goto-char beg)
+  ;; We rely on syntax-propertize-extend-region-functions that `beg`
+  ;; will be at beginning of line, but we ensure here that we are not
+  ;; in a string
+  (while (nth 3 (syntax-ppss))
+    (goto-char (nth 8 (syntax-ppss)))
+    (beginning-of-line))
+  ;; Search for string opening
+  (while (re-search-forward (rx (group (optional ?r))
+                                (group (or (repeat 3 ?\")
+                                           (repeat 3 ?\')
+                                           ?\"
+                                           ?\')))
+                            end t)
+    (let ((bos (match-beginning 2))
+          (rawp (equal (match-string-no-properties 1) "r"))
+          (string-delimiter (match-string-no-properties 2)))
+      ;; Set string fence syntax at beginning of string
+      (put-text-property bos (1+ bos) 'syntax-table (string-to-syntax "|") nil)
+      ;; Look for the end of string delimiter, depending on rawp and
+      ;; string-delimiter
+      (when (or (looking-at string-delimiter)
+                ;; Unless rawp, ensure an even number of backslashes
+                (re-search-forward (concat (if rawp "" (rx (not (any ?\\)) (zero-or-more ?\\ ?\\)))
+                                           string-delimiter)
+                                   end t))
+        (let ((eos (match-end 0)))
+          ;; Set end of string fence delimiter
+          (put-text-property (1- eos) eos 'syntax-table (string-to-syntax "|") nil)
+          ;; For all strings, remove fence property between fences
+          ;; For raw strings, set all backslashes to punctuation syntax
+          (dolist (pt (number-sequence (1+ bos) (- eos 2)))
+            (when (equal (get-text-property pt 'syntax-table) (string-to-syntax "|"))
+              (remove-text-properties pt (1+ pt) 'syntax-table))
+            (when (and rawp (equal (char-after pt) ?\\))
+              (put-text-property pt (1+ pt) 'syntax-table (string-to-syntax ".") nil)))
+          (goto-char eos))))))
 
 (defun dart-fontify-region (beg end)
   "Use fontify the region between BEG and END as Dart.
@@ -1965,7 +1955,7 @@ Key bindings:
   (setq-local indent-line-function 'dart-indent-line-function)
   (setq indent-tabs-mode nil)
   (setq tab-width 2)
-  (setq-local syntax-propertize-function dart-syntax-propertize-function)
+  (setq-local syntax-propertize-function 'dart-syntax-propertize-function)
   (when dart-enable-analysis-server
     (if (null dart-sdk-path)
         (dart-log
