@@ -705,6 +705,9 @@ fontify as declared variables. From ECMA-408,
      (dart--string-interpolation-exp-func (0 font-lock-variable-name-face t)))))
 
 (defun dart-syntax-propertize-function (beg end)
+  (dart-syntax-propertize-strings beg end))
+
+(defun dart-syntax-propertize-strings (beg end)
   "Sets syntax-table text properties for raw and/or multiline strings.
 
 We use fences uniformly for consistency.
