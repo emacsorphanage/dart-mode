@@ -114,8 +114,7 @@ true for positions before the start of the statement, but on its line."
              while (looking-at "^ *$"))
        (skip-syntax-backward " ")
        (cl-case (char-before)
-         ((?} ?\;) t)
-         ((?{) (dart-in-block-p (c-guess-basic-syntax))))))))
+         ((?} ?\;) t))))))
 
 (defun dart--delete-whole-line (&optional arg)
   "Delete the current line without putting it in the `kill-ring'.
@@ -365,7 +364,7 @@ indentation levels from right to left."
         (while t
           (when (= (point) 1)
             (throw 'done t))
-          (previous-line)
+          (forward-line -1)
           (unless (looking-at (rx (and bol (zero-or-more space) eol)))
             (setq prev-line t)
             (setq prev-indent (current-indentation))
@@ -427,13 +426,13 @@ indentation levels from right to left."
                                                          (?A . ?F)
                                                          digit)))))
 
-(defun dart--identifier (&optional case)
-  `(and (or word-start symbol-start)
-        (zero-or-more (any ?$ ?_))
-        ,(if case
-             case
-           'alpha)
-        (zero-or-more (or ?$ ?_ alnum))))
+(eval-and-compile (defun dart--identifier (&optional case)
+   `(and (or word-start symbol-start)
+         (zero-or-more (any ?$ ?_))
+         ,(if case
+              case
+            'alpha)
+         (zero-or-more (or ?$ ?_ alnum)))))
 
 (defvar dart--metadata-re (rx ?@ (eval (dart--identifier))))
 
@@ -480,7 +479,7 @@ These have the form ${expression}.
 Can fontify entire match with group 0, or using group 1 for sigil,
 groups 2 and 4 for curly brackets, and 3 for contents."
   (catch 'result
-    (let (sigil beg open close end syntax depth)
+    (let (sigil beg open close end depth)
       ;; Loop and put point after ${
       (while (and (search-forward "${" limit t)
                   ;; Check that we are in a string and not in a raw string
@@ -640,6 +639,7 @@ fontify as declared variables. From ECMA-408,
   variableDeclaration:
     declaredIdentifier (', ' identifier)*
   ;"
+  (ignore limit)
   (catch 'result
     (let ((depth (car (syntax-ppss))))
       (while t
@@ -802,7 +802,8 @@ whichever comes first."
 (defcustom dart-font-lock-extra-types nil
   "*List of extra types (aside from the type keywords) to recognize in DART mode.
 Each list item should be a regexp matching a single identifier."
-  :group 'dart-mode)
+  :group 'dart-mode
+  :type '(list regexp))
 
 
 ;;; Dart analysis server
@@ -901,8 +902,8 @@ directory or the current file directory to the analysis roots."
   (add-hook 'first-change-hook 'dart-add-analysis-overlay t t)
   (add-hook 'after-change-functions 'dart-change-analysis-overlay t t)
   (add-hook 'after-save-hook 'dart-remove-analysis-overlay t t)
-  (when (featurep 'flycheck)
-   (add-to-list 'flycheck-checkers 'dart-analysis-server)))
+  (when (boundp 'flycheck-checkers)
+    (add-to-list 'flycheck-checkers 'dart-analysis-server)))
 
 (defun dart-start-analysis-server ()
   "Start the Dart analysis server.
@@ -1144,7 +1145,7 @@ SUBSCRIPTION is an opaque object provided by
      (lambda (response)
        (dart--report-errors response buffer callback)))))
 
-(when (featurep 'flycheck)
+(when (fboundp 'flycheck-define-generic-checker)
  (flycheck-define-generic-checker
   'dart-analysis-server
   "Checks Dart source code for errors using Dart analysis server."
@@ -1164,14 +1165,15 @@ reported to CALLBACK."
 
 (defun dart--to-flycheck-err (err buffer)
   "Create a flycheck error from a dart ERR in BUFFER."
-  (flycheck-error-new
-   :buffer buffer
-   :checker 'dart-analysis-server
-   :filename (dart--get err 'location 'file)
-   :line (dart--get err 'location 'startLine)
-   :column (dart--get err 'location 'startColumn)
-   :message (dart--get err 'message)
-   :level (dart--severity-to-level (dart--get err 'severity))))
+  (when (fboundp 'flycheck-error-new)
+    (flycheck-error-new
+     :buffer buffer
+     :checker 'dart-analysis-server
+     :filename (dart--get err 'location 'file)
+     :line (dart--get err 'location 'startLine)
+     :column (dart--get err 'location 'startColumn)
+     :message (dart--get err 'message)
+     :level (dart--severity-to-level (dart--get err 'severity)))))
 
 (defun dart--severity-to-level (severity)
   "Convert SEVERITY to a flycheck level."
