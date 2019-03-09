@@ -737,9 +737,10 @@ strings."
       (put-text-property bos (1+ bos) 'syntax-table (string-to-syntax "|") nil)
       ;; Look for the end of string delimiter, depending on rawp and
       ;; string-delimiter
-      (when (or (looking-at string-delimiter)
-                ;; Unless rawp, ensure an even number of backslashes
-                (re-search-forward (concat (if rawp "" (rx (not (any ?\\)) (zero-or-more ?\\ ?\\)))
+      ;; Unless rawp, ensure an even number of backslashes
+      (when (or (looking-at (concat (unless rawp (rx (zero-or-more ?\\ ?\\)))
+                                    string-delimiter))
+                (re-search-forward (concat (unless rawp (rx (not (any ?\\)) (zero-or-more ?\\ ?\\)))
                                            string-delimiter)
                                    end t))
         (let ((eos (match-end 0)))
