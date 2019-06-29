@@ -398,7 +398,8 @@ indentation levels from right to left."
   '("assert" "break" "case" "catch" "class" "const" "continue"
     "default" "do" "else" "enum" "extends" "final" "finally" "for"
     "if" "in" "is" "new" "rethrow" "return" "super" "switch" "this"
-    "throw" "try" "var" "while" "with"))
+    "throw" "try" "var" "while" "with" "mixin"))
+;; mixin is not part of ECMA 408 but it's used in dart.
 
 (defvar dart--types '("bool" "double" "dynamic" "int" "num" "void"))
 
