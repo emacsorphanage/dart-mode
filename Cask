@@ -1,6 +1,8 @@
 (source gnu)
 (source melpa)
 
-(package-file "dart-mode.el")
+(package "dart-mode" "2.0.0" "Major mode for editing Dart files")
 
-(depends-on "ert-runner")
+(development
+ (depends-on "ert-runner")
+ (depends-on "package-lint"))

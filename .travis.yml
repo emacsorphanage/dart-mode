@@ -1,15 +1,10 @@
-sudo: required
+dist: trusty
+sudo: false
 
-language: dart
-
-dart:
-  - stable
-  - dev
+language: generic
 
 env:
-  # - EVM_EMACS=emacs-24.1-travis
-  # - EVM_EMACS=emacs-24.2-travis
-  # - EVM_EMACS=emacs-24.3-travis
+  - EVM_EMACS=emacs-24.3-travis
   - EVM_EMACS=emacs-24.4-travis
   - EVM_EMACS=emacs-24.5-travis
   - EVM_EMACS=emacs-25.1-travis
@@ -22,7 +17,6 @@ before_install:
 
   - curl -fsSkL https://gist.github.com/rejeep/ebcd57c3af83b049833b/raw > x.sh && source ./x.sh
   - evm install $EVM_EMACS --use --skip
-  - cask --verbose
 
 script:
   - make

@@ -404,7 +404,8 @@ untyped parameters. For example, in
         (unless (looking-back (rx (or (and (or "do" "for" "if" "switch" "while")
                                            space)
                                       "super")
-                                  ?\())
+                                  ?\()
+                              (point-at-bol))
           (condition-case nil
               (up-list)
             (scan-error (throw 'result nil)))
