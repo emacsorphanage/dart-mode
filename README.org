@@ -1,6 +1,0 @@
-
-An Emacs major mode for editing Dart files. Provides basic syntax
-highlighting and indentation. Also provides formatting via =dartfmt=.
-
-Please see the [[https://github.com/bradyt/dart-mode/wiki][Wiki]] for
-more information.
