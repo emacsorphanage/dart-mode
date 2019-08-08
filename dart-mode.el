@@ -102,19 +102,19 @@ indentation levels from right to left."
 (defvar dart--builtins
   ;; ECMA 408; Section: Identifier Reference
   ;; "Built-in identifiers"
-  '("abstract" "as" "deferred" "dynamic" "export" "external" "hide"
-    "factory" "get" "implements" "import" "library" "of" "operator"
-    "part" "set" "show" "static" "typedef"))
+  '("abstract" "as" "covariant" "deferred" "dynamic" "export"
+    "external" "factory" "Function" "get" "implements" "import"
+    "interface" "library" "mixin" "operator" "part" "set" "static"
+    "typedef"))
 
 (defvar dart--keywords
   ;; ECMA 408; Section: Reserved Words
   '("assert" "break" "case" "catch" "class" "const" "continue"
     "default" "do" "else" "enum" "extends" "final" "finally" "for"
     "if" "in" "is" "new" "rethrow" "return" "super" "switch" "this"
-    "throw" "try" "var" "while" "with" "mixin"))
-;; mixin is not part of ECMA 408 but it's used in dart.
+    "throw" "try" "var" "while" "with"))
 
-(defvar dart--types '("bool" "double" "dynamic" "int" "num" "void"))
+(defvar dart--types '("bool" "double" "int" "num" "void"))
 
 (defvar dart--constants '("false" "null" "true"))
 
