@@ -353,13 +353,13 @@ fontify as declared variables. From ECMA-408,
   variableDeclaration:
     declaredIdentifier (', ' identifier)*
   ;"
-  (ignore limit)
   (catch 'result
     (let ((depth (car (syntax-ppss))))
       (while t
         (cond
          ;; If point is followed by semi-colon, we are done.
-         ((or (= (char-after (point)) ?\x3b) ; ?;
+         ((or (> (point) limit)
+              (= (char-after (point)) ?\;)
               (< (car (syntax-ppss)) depth))
           (throw 'result nil))
          ;; If point is followed by comma, and we are still at same

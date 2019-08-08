@@ -1,0 +1,8 @@
+«k:var» «v:name» = «s:'Voyager I'»;
+«k:var» «v:year» = «c:1977»;
+«k:var» «v:antennaDiameter» = «c:3.7»;
+«k:var» «v:flybyObjects» = [«s:'Jupiter'», «s:'Saturn'», «s:'Uranus'», «s:'Neptune'»];
+«k:var» «v:image» = {
+  «s:'tags'»: [«s:'saturn'»],
+  «s:'url'»: «s:'//path/to/saturn.jpg'»
+};

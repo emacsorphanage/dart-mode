@@ -1,0 +1,14 @@
+«k:if» (astronauts == «c:0») {
+  «k:throw» «t:StateError»(«s:'No astronauts.'»);
+}
+
+«k:try» {
+  «k:for» («k:var» «v:object» «k:in» flybyObjects) {
+    «k:var» «v:description» = «k:await» «t:File»(«s:'»«v:$object»«s:.txt'»).readAsString();
+    print(description);
+  }
+} on «t:IOException» «k:catch» («v:e») {
+  print(«s:'Could not describe object: »«v:$e»«s:'»);
+} «k:finally» {
+  flybyObjects.clear();
+}

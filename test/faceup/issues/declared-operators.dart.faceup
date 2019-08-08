@@ -1,0 +1,6 @@
+«k:class» «t:DateTime» «b:implements» «t:Comparable»<«t:DateTime»> {
+  «t:bool» «b:operator» «f:==»(«v:other») {
+    «k:if» (!(other «k:is» «t:DateTime»)) «k:return» «c:false»;
+    «k:return» (_value == other._value && isUtc == other.isUtc);
+  }
+}

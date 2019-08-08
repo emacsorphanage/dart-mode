@@ -1,0 +1,5 @@
+«k:class» «t:Spacecraft» {
+  «t:String» «v:name»;
+
+  «t:Spacecraft».«f:unlaunched»(«t:String» «v:name») : «k:this»(name, «c:null»);
+}

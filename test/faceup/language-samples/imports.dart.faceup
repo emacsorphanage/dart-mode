@@ -1,0 +1,8 @@
+«x:// Importing core libraries
+»«b:import» «s:'dart:math'»;
+
+«x:// Importing libraries from external packages
+»«b:import» «s:'package:test/test.dart'»;
+
+«x:// Importing files
+»«b:import» «s:'path/to/my_other_file.dart'»;

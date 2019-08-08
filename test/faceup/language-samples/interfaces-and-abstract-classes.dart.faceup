@@ -1,0 +1,13 @@
+«k:class» «t:MockSpaceship» «b:implements» «t:Spacecraft» {
+  «x:// ···
+»}
+
+«b:abstract» «k:class» «t:Describable» {
+  «t:void» describe();
+
+  «t:void» «f:describeWithEmphasis»() {
+    print(«s:'========='»);
+    describe();
+    print(«s:'========='»);
+  }
+}

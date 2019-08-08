@@ -1,0 +1,17 @@
+«k:if» (year >= «c:2001») {
+  print(«s:'21st century'»);
+} «k:else» «k:if» (year >= «c:1901») {
+  print(«s:'20th century'»);
+}
+
+«k:for» («k:var» «v:object» «k:in» flybyObjects) {
+  print(object);
+}
+
+«k:for» («t:int» «v:month» = «c:1»; month <= «c:12»; month++) {
+  print(month);
+}
+
+«k:while» (year < «c:2016») {
+  year += «c:1»;
+}

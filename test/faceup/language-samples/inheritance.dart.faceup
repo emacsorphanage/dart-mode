@@ -1,0 +1,5 @@
+«k:class» «t:Orbiter» «k:extends» «t:Spacecraft» {
+  «t:num» «v:altitude»;
+  «t:Orbiter»(«t:String» «v:name», «t:DateTime» «v:launchDate», «k:this».altitude)
+      : «k:super»(name, launchDate);
+}

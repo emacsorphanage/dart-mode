@@ -1,0 +1,36 @@
+«k:const» «v:oneSecond» = «t:Duration»(seconds: «c:1»);
+«x:// ...
+»«t:Future»<«t:void»> «f:printWithDelay»(«t:String» «v:message») «k:async» {
+  «k:await» «t:Future».delayed(oneSecond);
+  print(message);
+}
+
+«t:Future»<«t:void»> «f:printWithDelay»(«t:String» «v:message») {
+  «k:return» «t:Future».delayed(oneSecond).then((«v:_») {
+    print(message);
+  });
+}
+
+«t:Future»<«t:void»> «f:createDescriptions»(«t:Iterable»<«t:String»> «v:objects») «k:async» {
+  «k:for» («k:var» «v:object» «k:in» objects) {
+    «k:try» {
+      «k:var» «v:file» = «t:File»(«s:'»«v:$object»«s:.txt'»);
+      «k:if» («k:await» file.exists()) {
+        «k:var» «v:modified» = «k:await» file.lastModified();
+        print(«s:'File for »«v:$object»«s: already exists. It was modified on »«v:$modified»«s:.'»);
+        «k:continue»;
+      }
+      «k:await» file.create();
+      «k:await» file.writeAsString(«s:'Start describing »«v:$object»«s: in this file.'»);
+    } on «t:IOException» «k:catch» («v:e») {
+      print(«s:'Cannot create description for »«v:$object»«s:: »«v:$e»«s:'»);
+    }
+  }
+}
+
+«t:Stream»<«t:String»> «f:report»(«t:Spacecraft» «v:craft», «t:Iterable»<«t:String»> «v:objects») «k:async*» {
+  «k:for» («k:var» «v:object» «k:in» objects) {
+    «k:await» «t:Future».delayed(oneSecond);
+    «k:yield» «s:'»«v:${craft.name}»«s: flies by »«v:$object»«s:'»;
+  }
+}

@@ -5,4 +5,5 @@
 
 (development
  (depends-on "ert-runner")
+ (depends-on "faceup")
  (depends-on "package-lint"))
