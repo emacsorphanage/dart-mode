@@ -280,7 +280,7 @@ matched."
   (catch 'result
     (let (beg end)
         (while (re-search-forward
-                (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+                (rx (and (not (any ?\.)) (group (eval (dart--identifier 'lower)))) ?\() limit t)
           (setq beg (match-beginning 1))
           (setq end (match-end 1))
           (condition-case nil
@@ -291,6 +291,7 @@ matched."
                   (goto-char beg)
                   (back-to-indentation)
                   (when (and (= (current-column) 2)
+                             (not (looking-at "return"))
                              (string-match-p
                               " " (buffer-substring-no-properties
                                    (point) beg))
