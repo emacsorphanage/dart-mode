@@ -279,35 +279,30 @@ For example, \"compareTo\" in \"  int compareTo(num other);\" would be
 matched."
   (catch 'result
     (let (beg end)
-      (while (re-search-forward
-              (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
-        (setq beg (match-beginning 1))
-        (setq end (match-end 1))
-        (condition-case nil
-            (progn
-              (up-list)
-              (when (> (point) limit)
-                (throw 'result nil))
-              (unless (= (char-after (point)) ?\;)
-                (throw 'result nil))
-              (goto-char beg)
-              (back-to-indentation)
-              (unless (= (current-column) 2)
-                (throw 'result nil))
-              (unless (string-match-p
-                     " " (buffer-substring-no-properties
-                          (point) beg))
-                (throw 'result nil))
-              (when (string-match-p
-                     "=" (buffer-substring-no-properties
-                          (point) beg))
-                (throw 'result nil))
-              (goto-char end)
-              (set-match-data (list beg end))
-              (throw 'result t))
-          (scan-error nil))
-        (goto-char end))
-      (throw 'result nil))))
+        (while (re-search-forward
+                (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+          (setq beg (match-beginning 1))
+          (setq end (match-end 1))
+          (condition-case nil
+              (progn
+                (up-list)
+                (when (and (< (point) (point-max))
+                           (= (char-after (point)) ?\;))
+                  (goto-char beg)
+                  (back-to-indentation)
+                  (when (and (= (current-column) 2)
+                             (string-match-p
+                              " " (buffer-substring-no-properties
+                                   (point) beg))
+                             (not (string-match-p
+                                   "=" (buffer-substring-no-properties
+                                        (point) beg))))
+                    (goto-char end)
+                    (set-match-data (list beg end))
+                    (throw 'result t))))
+            (scan-error nil))
+          (goto-char end)))
+    (throw 'result nil)))
 
 (defun dart--declared-identifier-func (limit)
   "Font-lock matcher function for declared identifiers.
