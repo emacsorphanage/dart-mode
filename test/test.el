@@ -34,3 +34,12 @@
 (ert-deftest dart-font-lock-named-constructors-test ()
   :expected-result :failed
   (should (dart-font-lock-test-apps "faceup/issues/named-constructors.dart")))
+
+(defun dart-font-lock-test (faceup)
+  (faceup-test-font-lock-string 'dart-mode faceup))
+(faceup-defexplainer dart-font-lock-test)
+
+(ert-deftest dart-font-lock-declared-identifier-anchors ()
+  "Simple Dart font-lock tests."
+  (should (dart-font-lock-test "«k:var» «v:a», «v:b»;"))
+  (should (dart-font-lock-test "group(«s:\"WordCount: Ignore special characters - \"», ignoreSpecialCharacters);")))

@@ -334,9 +334,10 @@ For example, \"height\" in \"const int height\" would be matched."
                            '("bool" "double" "dynamic" "int" "num" "void"
                              "var"
                              "get" "set")))
-          (set-match-data (list beg end))
           (goto-char end)
-          (throw 'result t))
+          (unless (nth 3 (syntax-ppss))
+            (set-match-data (list beg end))
+            (throw 'result t)))
         (goto-char (match-end 1)))
       (throw 'result nil))))
 
