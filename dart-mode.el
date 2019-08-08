@@ -268,6 +268,47 @@ For example, \"main\" in \"void main() async\" would be matched."
         (goto-char end))
       (throw 'result nil))))
 
+(defun dart--abstract-method-func (limit)
+  "Font-lock matcher function for abstract methods.
+
+Matches function declarations before LIMIT that look like,
+
+  \"  [^ ][^=]* lowercaseIdentifier([...]);\"
+
+For example, \"compareTo\" in \"  int compareTo(num other);\" would be
+matched."
+  (catch 'result
+    (let (beg end)
+      (while (re-search-forward
+              (rx (group (eval (dart--identifier 'lower))) ?\() limit t)
+        (setq beg (match-beginning 1))
+        (setq end (match-end 1))
+        (condition-case nil
+            (progn
+              (up-list)
+              (when (> (point) limit)
+                (throw 'result nil))
+              (unless (= (char-after (point)) ?\;)
+                (throw 'result nil))
+              (goto-char beg)
+              (back-to-indentation)
+              (unless (= (current-column) 2)
+                (throw 'result nil))
+              (unless (string-match-p
+                     " " (buffer-substring-no-properties
+                          (point) beg))
+                (throw 'result nil))
+              (when (string-match-p
+                     "=" (buffer-substring-no-properties
+                          (point) beg))
+                (throw 'result nil))
+              (goto-char end)
+              (set-match-data (list beg end))
+              (throw 'result t))
+          (scan-error nil))
+        (goto-char end))
+      (throw 'result nil))))
+
 (defun dart--declared-identifier-func (limit)
   "Font-lock matcher function for declared identifiers.
 
@@ -465,7 +506,8 @@ untyped parameters. For example, in
 (defvar dart-font-lock-keywords-1
   `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
     (dart--function-declaration-func            . font-lock-function-name-face)
-    (,dart--operator-declaration-re             . (1 font-lock-function-name-face))))
+    (,dart--operator-declaration-re             . (1 font-lock-function-name-face))
+    (dart--abstract-method-func                 . font-lock-function-name-face)))
 
 (defvar dart-font-lock-keywords-2
   `(,dart--async-keywords-re
@@ -479,7 +521,8 @@ untyped parameters. For example, in
     (,(regexp-opt dart--types 'words)     . font-lock-type-face)
     (,dart--types-re                      . font-lock-type-face)
     (dart--function-declaration-func      . font-lock-function-name-face)
-    (,dart--operator-declaration-re       . (1 font-lock-function-name-face))))
+    (,dart--operator-declaration-re       . (1 font-lock-function-name-face))
+    (dart--abstract-method-func           . font-lock-function-name-face)))
 
 (defvar dart-font-lock-keywords-3
   (append

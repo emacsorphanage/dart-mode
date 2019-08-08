@@ -23,7 +23,6 @@
   (should (dart-font-lock-test-apps "faceup/language-samples/variables.dart")))
 
 (ert-deftest dart-font-lock-abstract-method-test ()
-  :expected-result :failed
   (should (dart-font-lock-test-apps "faceup/issues/abstract-methods.dart")))
 
 (ert-deftest dart-font-lock-covariant-test ()
