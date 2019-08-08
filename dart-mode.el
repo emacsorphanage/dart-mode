@@ -4,7 +4,7 @@
 ;;      Brady Trainor <mail@bradyt.com>
 ;; Maintainer: Brady Trainor <mail@bradyt.com>
 ;; URL: https://github.com/bradyt/dart-mode
-;; Version: 1.0.4
+;; Version: 1.0.5
 ;; Package-Requires: ((emacs "24.5") (cl-lib "0.5") (dash "2.10.0") (flycheck "0.23") (s "1.10"))
 ;; Keywords: languages
 
@@ -278,7 +278,7 @@ Only set in `dart-popup-mode'.")
   "The absolute path to the root of the Dart SDK."
   :group 'dart-mode
   :type 'directory
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defun dart-executable-path ()
   "The absolute path to the 'dart' executable.
@@ -906,7 +906,7 @@ The Dart analysis server adds support for error checking, code completion,
 navigation, and more."
   :group 'dart-mode
   :type 'boolean
-  :package-version '(dart-mode . "0.12"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defvar dart--analysis-server nil
   "The instance of the Dart analysis server we are communicating with.")
@@ -1562,7 +1562,7 @@ This is used when the analysis server isn't available. It
 defaults to the command globally bound to M-/."
   :group 'dart-mode
   :type 'function
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defvar dart--last-expand-results nil
   "The results of the last call to `dart-expand'.")
@@ -1853,19 +1853,19 @@ Also removes this function from `post-command-hook'."
 Don't read this variable; call `dart-formatter-command' instead."
   :type 'string
   :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defcustom dart-formatter-line-length 80
   "The line length to use when running the Dart formatter."
   :type 'integer
   :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defcustom dart-format-on-save nil
   "Whether to run the Dart formatter before saving."
   :type 'boolean
   :group 'dart-mode
-  :package-version '(dart-mode . "1.0.0"))
+  :package-version '(dart-mode . "1.0.5"))
 
 (defcustom dart-formatter-show-errors 'buffer
   "Where to display Dart formatter error output.
