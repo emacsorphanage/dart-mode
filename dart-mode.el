@@ -140,6 +140,11 @@ indentation levels from right to left."
                                                          (?A . ?F)
                                                          digit)))))
 
+(defvar dart--operator-declaration-re (rx "operator"
+                                          (one-or-more space)
+                                          (group
+                                           (one-or-more (not (any ?\())))))
+
 (eval-and-compile (defun dart--identifier (&optional case)
    `(and (or word-start symbol-start)
          (zero-or-more (any ?$ ?_))
@@ -459,7 +464,8 @@ untyped parameters. For example, in
 
 (defvar dart-font-lock-keywords-1
   `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
-    (dart--function-declaration-func            . font-lock-function-name-face)))
+    (dart--function-declaration-func            . font-lock-function-name-face)
+    (,dart--operator-declaration-re             . (1 font-lock-function-name-face))))
 
 (defvar dart-font-lock-keywords-2
   `(,dart--async-keywords-re
@@ -472,7 +478,8 @@ untyped parameters. For example, in
     (,dart--constants-re                   . font-lock-constant-face)
     (,(regexp-opt dart--types 'words)     . font-lock-type-face)
     (,dart--types-re                      . font-lock-type-face)
-    (dart--function-declaration-func      . font-lock-function-name-face)))
+    (dart--function-declaration-func      . font-lock-function-name-face)
+    (,dart--operator-declaration-re       . (1 font-lock-function-name-face))))
 
 (defvar dart-font-lock-keywords-3
   (append

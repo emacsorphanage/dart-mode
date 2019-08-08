@@ -31,7 +31,6 @@
   (should (dart-font-lock-test-apps "faceup/issues/covariant.dart")))
 
 (ert-deftest dart-font-lock-declared-operators-test ()
-  :expected-result :failed
   (should (dart-font-lock-test-apps "faceup/issues/declared-operators.dart")))
 
 (ert-deftest dart-font-lock-named-constructors-test ()
