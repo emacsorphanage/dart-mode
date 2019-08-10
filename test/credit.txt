@@ -1,0 +1,5 @@
+The source code samples in the language-samples/ directory were copied
+from https://dart.dev/samples.
+
+Currently, most of the code in the issues/ directory is taken from the
+language-samples/ directory.
