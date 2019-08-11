@@ -1,0 +1,154 @@
+«b:abstract» «k:class» «t:Stream»<«t:T»> {
+
+  «b:static» «t:Stream»<«t:T»> «f:castFrom»<«t:S», «t:T»>(«t:Stream»<«t:S»> «v:source») =>
+      «k:new» «t:CastStream»<«t:S», «t:T»>(source);
+
+  «t:Stream»<«t:S»> «f:map»<«t:S»>(«t:S» convert(«t:T» «v:event»)) {
+    «k:return» «k:new» «t:_MapStream»<«t:T», «t:S»>(«k:this», convert);
+  }
+
+  «t:Stream»<«t:E»> «f:asyncMap»<«t:E»>(«t:FutureOr»<«t:E»> convert(«t:T» «v:event»)) {
+    «t:_StreamControllerBase»<«t:E»> «v:controller»;
+    «t:StreamSubscription»<«t:T»> «v:subscription»;
+
+    «t:void» «f:onListen»() {
+      «k:final» «v:add» = controller.add;
+      «k:assert»(controller «k:is» «t:_StreamController»<«t:E»> ||
+          controller «k:is» «t:_BroadcastStreamController»);
+      «k:final» «v:addError» = controller._addError;
+      subscription = «k:this».listen((«t:T» «v:event») {
+        «t:FutureOr»<«t:E»> «v:newValue»;
+        «k:try» {
+          newValue = convert(event);
+        } «k:catch» («v:e», «v:s») {
+          controller.addError(e, s);
+          «k:return»;
+        }
+        «k:if» (newValue «k:is» «t:Future»<«t:E»>) {
+          subscription.pause();
+          newValue
+              .then(add, onError: addError)
+              .whenComplete(subscription.resume);
+        } «k:else» {
+          controller.add(newValue);
+        }
+      }, onError: addError, onDone: controller.close);
+    }
+
+    «k:if» («k:this».isBroadcast) {
+      controller = «k:new» «t:StreamController»<«t:E»>.broadcast(
+          onListen: onListen,
+          onCancel: () {
+            subscription.cancel();
+          },
+          «k:sync»: «c:true»);
+    } «k:else» {
+      controller = «k:new» «t:StreamController»<«t:E»>(
+          onListen: onListen,
+          onPause: () {
+            subscription.pause();
+          },
+          onResume: () {
+            subscription.resume();
+          },
+          onCancel: () => subscription.cancel(),
+          «k:sync»: «c:true»);
+    }
+    «k:return» controller.stream;
+  }
+
+  «t:Stream»<«t:E»> «f:asyncExpand»<«t:E»>(«t:Stream»<«t:E»> convert(«t:T» «v:event»)) {
+    «t:_StreamControllerBase»<«t:E»> «v:controller»;
+    «t:StreamSubscription»<«t:T»> «v:subscription»;
+    «t:void» «f:onListen»() {
+      «k:assert»(controller «k:is» «t:_StreamController» ||
+          controller «k:is» «t:_BroadcastStreamController»);
+      subscription = «k:this».listen((«t:T» «v:event») {
+        «t:Stream»<«t:E»> «v:newStream»;
+        «k:try» {
+          newStream = convert(event);
+        } «k:catch» («v:e», «v:s») {
+          controller.addError(e, s);
+          «k:return»;
+        }
+        «k:if» (newStream != «c:null») {
+          subscription.pause();
+          controller.addStream(newStream).whenComplete(subscription.resume);
+        }
+      },
+          onError: controller._addError, «x:// Avoid Zone error replacement.
+»          onDone: controller.close);
+    }
+
+    «k:if» («k:this».isBroadcast) {
+      controller = «k:new» «t:StreamController»<«t:E»>.broadcast(
+          onListen: onListen,
+          onCancel: () {
+            subscription.cancel();
+          },
+          «k:sync»: «c:true»);
+    } «k:else» {
+      controller = «k:new» «t:StreamController»<«t:E»>(
+          onListen: onListen,
+          onPause: () {
+            subscription.pause();
+          },
+          onResume: () {
+            subscription.resume();
+          },
+          onCancel: () => subscription.cancel(),
+          «k:sync»: «c:true»);
+    }
+    «k:return» controller.stream;
+  }
+
+  «t:Stream»<«t:S»> «f:expand»<«t:S»>(«t:Iterable»<«t:S»> convert(«t:T» «v:element»)) {
+    «k:return» «k:new» «t:_ExpandStream»<«t:T», «t:S»>(«k:this», convert);
+  }
+
+  «t:Stream»<«t:S»> «f:transform»<«t:S»>(«t:StreamTransformer»<«t:T», «t:S»> «v:streamTransformer») {
+    «k:return» streamTransformer.bind(«k:this»);
+  }
+
+  «t:Future»<«t:S»> «f:fold»<«t:S»>(«t:S» «v:initialValue», «t:S» combine(«t:S» «v:previous», «t:T» «v:element»)) {
+    «t:_Future»<«t:S»> «v:result» = «k:new» «t:_Future»<«t:S»>();
+    «t:S» «v:value» = initialValue;
+    «t:StreamSubscription» «v:subscription»;
+    subscription = «k:this».listen(
+        («t:T» «v:element») {
+          _runUserCode(() => combine(value, element), («t:S» «v:newValue») {
+            value = newValue;
+          }, _cancelAndErrorClosure(subscription, result));
+        },
+        onError: result._completeError,
+        onDone: () {
+          result._complete(value);
+        },
+        cancelOnError: «c:true»);
+    «k:return» result;
+  }
+
+  «t:Stream»<«t:R»> «f:cast»<«t:R»>() => «t:Stream».castFrom<«t:T», «t:R»>(«k:this»);
+
+
+  «t:Future»<«t:E»> «f:drain»<«t:E»>([«t:E» «v:futureValue»]) =>
+      listen(«c:null», cancelOnError: «c:true»).asFuture<«t:E»>(futureValue);
+
+}
+
+«b:abstract» «k:class» «t:StreamTransformer»<«t:S», «t:T»> {
+
+  «b:static» «t:StreamTransformer»<«t:TS», «t:TT»> «f:castFrom»<«t:SS», «t:ST», «t:TS», «t:TT»>(
+      «t:StreamTransformer»<«t:SS», «t:ST»> «v:source») {
+    «k:return» «k:new» «t:CastStreamTransformer»<«t:SS», «t:ST», «t:TS», «t:TT»>(source);
+  }
+
+  «t:StreamTransformer»<«t:RS», «t:RT»> «f:cast»<«t:RS», «t:RT»>();
+}
+
+«b:abstract» «k:class» «t:StreamTransformerBase»<«t:S», «t:T»> «b:implements» «t:StreamTransformer»<«t:S», «t:T»> {
+  «k:const» «t:StreamTransformerBase»();
+
+  «t:StreamTransformer»<«t:RS», «t:RT»> «f:cast»<«t:RS», «t:RT»>() =>
+      «t:StreamTransformer».castFrom<«t:S», «t:T», «t:RS», «t:RT»>(«k:this»);
+}

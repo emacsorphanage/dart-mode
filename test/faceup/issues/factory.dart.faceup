@@ -1,0 +1,18 @@
+«b:abstract» «k:class» «t:Stream»<«t:T»> {
+
+  «k:const» «b:factory» «t:Stream».«f:empty»() = «t:_EmptyStream»<«t:T»>;
+
+}
+
+
+«b:abstract» «k:class» «t:StreamTransformer»<«t:S», «t:T»> {
+
+  «b:factory» «t:StreamTransformer».«f:fromHandlers»(
+      {«t:void» handleData(«t:S» «v:data», «t:EventSink»<«t:T»> «v:sink»),
+      «t:void» handleError(«t:Object» «v:error», «t:StackTrace» «v:stackTrace», «t:EventSink»<«t:T»> «v:sink»),
+      «t:void» handleDone(«t:EventSink»<«t:T»> «v:sink»)}) = «t:_StreamHandlerTransformer»<«t:S», «t:T»>;
+
+  «b:factory» «t:StreamTransformer».«f:fromBind»(«t:Stream»<«t:T»> «b:Function»(«t:Stream»<«t:S»>) bind) =
+      «t:_StreamBindTransformer»<«t:S», «t:T»>;
+
+}

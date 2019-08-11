@@ -10,6 +10,7 @@
 (faceup-defexplainer dart-font-lock-test-apps)
 
 (ert-deftest dart-font-lock-language-samples-test ()
+  (should (dart-font-lock-test-apps "faceup/core/async.dart"))
   (should (dart-font-lock-test-apps "faceup/language-samples/async.dart"))
   (should (dart-font-lock-test-apps "faceup/language-samples/classes.dart"))
   (should (dart-font-lock-test-apps "faceup/language-samples/comments.dart"))
@@ -30,6 +31,14 @@
 
 (ert-deftest dart-font-lock-declared-operators-test ()
   (should (dart-font-lock-test-apps "faceup/issues/declared-operators.dart")))
+
+(ert-deftest dart-font-lock-factory-test ()
+  :expected-result :failed
+  (should (dart-font-lock-test-apps "faceup/issues/factory.dart")))
+
+(ert-deftest dart-font-lock-generic-method-test ()
+  :expected-result :failed
+  (should (dart-font-lock-test-apps "faceup/issues/generic-method.dart")))
 
 (ert-deftest dart-font-lock-named-constructors-test ()
   :expected-result :failed
