@@ -607,6 +607,8 @@ Key bindings:
   (modify-syntax-entry ?*  ". 23")
   (modify-syntax-entry ?\n "> b")
   (modify-syntax-entry ?\' "\"")
+  (modify-syntax-entry ?\> ".")
+  (modify-syntax-entry ?\< ".")
   (setq-local electric-indent-chars '(?\n ?\) ?\] ?\}))
   (setq-local comment-start "//")
   (setq-local comment-end "")
