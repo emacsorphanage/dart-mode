@@ -1,0 +1,20 @@
+
+(defun dart-ert-test-indentation-of-file (file)
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let ((orig-length (buffer-size)))
+      (dart-mode)
+      (let ((inhibit-message t))
+        (indent-region (point-min) (point-max)))
+      (= (buffer-size) orig-length))))
+
+(ert-deftest dart-indentation-test ()
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/classes.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/comments.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/control-flow-statements.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/exceptions.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/functions.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/hello-world.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/imports.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/interfaces-and-abstract-classes.dart"))
+  (should (dart-ert-test-indentation-of-file "test/faceup/language-samples/variables.dart")))

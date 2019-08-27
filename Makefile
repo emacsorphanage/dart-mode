@@ -9,8 +9,15 @@ package-lint: .cask
 dart-mode.elc:
 	emacs -batch -f batch-byte-compile dart-mode.el
 
-test: .cask dart-mode.elc
-	cask emacs -batch -l dart-mode.elc -l ert -l test/test.el -f ert-run-tests-batch-and-exit
+test-setup: .cask dart-mode.elc
+
+test-font-lock: test-setup
+	cask emacs -batch -l dart-mode.elc -l ert -l test/test-font-lock.el -f ert-run-tests-batch-and-exit
+
+test-indentation: test-setup
+	cask emacs -batch -l dart-mode.elc -l ert -l test/test-indentation.el -f ert-run-tests-batch-and-exit
+
+test: test-font-lock test-indentation
 
 checkdoc:
 	emacs -batch -eval "(when (>= emacs-major-version 25) (checkdoc-file \"dart-mode.el\"))"
