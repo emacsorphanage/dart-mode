@@ -36,6 +36,10 @@
   :expected-result :failed
   (should (dart-font-lock-test-apps "faceup/issues/factory.dart")))
 
+(ert-deftest dart-font-lock-false-positive-test ()
+  :expected-result :failed
+  (should (dart-font-lock-test-apps "faceup/stagehand/server.dart")))
+
 (ert-deftest dart-font-lock-generic-method-test ()
   :expected-result :failed
   (should (dart-font-lock-test-apps "faceup/issues/generic-method.dart")))

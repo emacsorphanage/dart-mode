@@ -1,0 +1,34 @@
+«b:import» «s:'dart:io'»;
+
+«b:import» «s:'package:args/args.dart'»;
+«b:import» «s:'package:shelf/shelf.dart'» «b:as» shelf;
+«b:import» «s:'package:shelf/shelf_io.dart'» «b:as» io;
+
+«m:// »«x:For Google Cloud Run, set _hostname to '0.0.0.0'.
+»«k:const» «v:_hostname» = «s:'localhost'»;
+
+«f:main»(«t:List»<«t:String»> «v:args») «k:async» {
+  «k:var» «v:parser» = «t:ArgParser»()..addOption(«s:'port'», abbr: «s:'p'»);
+  «k:var» «v:result» = parser.parse(args);
+
+  «m:// »«x:For Google Cloud Run, we respect the PORT environment variable
+»  «k:var» «v:portStr» = result[«s:'port'»] ?? «t:Platform».environment[«s:'PORT'»] ?? «s:'8080'»;
+  «k:var» «v:port» = «t:int».tryParse(portStr);
+
+  «k:if» (port == «c:null») {
+    stdout.writeln(«s:'Could not parse port value "»«v:$portStr»«s:" into a number.'»);
+    «m:// »«x:64: command line usage error
+»    exitCode = «c:64»;
+    «k:return»;
+  }
+
+  «k:var» «v:handler» = «k:const» shelf.«t:Pipeline»()
+      .addMiddleware(shelf.logRequests())
+      .addHandler(_echoRequest);
+
+  «k:var» «v:server» = «k:await» io.serve(handler, _hostname, port);
+  print(«s:'Serving at http://»«v:${server.address.host}»«s::»«v:${server.port}»«s:'»);
+}
+
+shelf.«t:Response» «f:_echoRequest»(shelf.«t:Request» «v:request») =>
+    shelf.«t:Response».ok(«s:'Request for "»«v:${request.url}»«s:"'»);
