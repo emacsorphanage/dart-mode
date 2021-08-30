@@ -1,10 +1,22 @@
 ;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
-;; Author: Brady Trainor <dart-mode_maintainer@tangential.info>
+;; Author: https://github.com/bradyt/dart-mode/issues
 ;; URL: https://github.com/bradyt/dart-mode
-;; Version: 1.0.6
+;; Version: 1.0.7
 ;; Package-Requires: ((emacs "24.3"))
 ;; Keywords: languages
+
+;; The author is Brady Trainor, but removed from keywords in attempt
+;; to avoid some class of robots.
+
+;; Honorable mention to previous author, maintainer and
+;; contributors. Please see git history for significant
+;; contributions. They are mostly gone from the current repo, replaced
+;; or split out to dart-server repo. Most of the Github stars are from
+;; previous management. The mistakes and regressions in the rewrite
+;; below are my own. The previous implementation was done with cc-mode
+;; framework. Let me know if you think it should be added back as an
+;; option.
 
 ;;; Commentary:
 
