@@ -433,6 +433,7 @@ fontify as declared variables. From ECMA-408,
         (cond
          ;; If point is followed by semi-colon, we are done.
          ((or (> (point) limit)
+              (null (char-after (point)))
               (= (char-after (point)) ?\;)
               (< (car (syntax-ppss)) depth))
           (throw 'result nil))
