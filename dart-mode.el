@@ -108,7 +108,14 @@ indentation levels from right to left."
 ;;; Fontification
 
 (defvar dart--file-directives
-  '("as" "deferred" "export" "hide" "import" "library" "of" "part"
+  '("as"
+    "deferred"
+    "export"
+    "hide"
+    "import"
+    "library"
+    "of"
+    "part"
     "show"))
 
 (defvar dart--builtins
@@ -140,14 +147,47 @@ indentation levels from right to left."
 
 (defvar dart--keywords
   ;; ECMA 408; Section: Reserved Words
-  '("assert" "break" "case" "catch" "class" "const" "continue"
-    "default" "do" "else" "enum" "extends" "final" "finally" "for"
-    "if" "in" "is" "new" "rethrow" "return" "super" "switch" "this"
-    "throw" "try" "var" "while" "with"))
+  '("assert"
+    "break"
+    "case"
+    "catch"
+    "class"
+    "const"
+    "continue"
+    "default"
+    "do"
+    "else"
+    "enum"
+    "extends"
+    "final"
+    "finally"
+    "for"
+    "if"
+    "in"
+    "is"
+    "new"
+    "rethrow"
+    "return"
+    "super"
+    "switch"
+    "this"
+    "throw"
+    "try"
+    "var"
+    "while"
+    "with"))
 
-(defvar dart--types '("bool" "double" "int" "num" "void"))
+(defvar dart--types
+  '("bool"
+    "double"
+    "int"
+    "num"
+    "void"))
 
-(defvar dart--constants '("false" "null" "true"))
+(defvar dart--constants
+  '("false"
+    "null"
+    "true"))
 
 (defvar dart--async-keywords-re (rx word-start
                                     (or "async" "await" "sync" "yield")
