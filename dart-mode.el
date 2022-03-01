@@ -194,22 +194,18 @@ indentation levels from right to left."
                                     word-end
                                     (zero-or-one ?*)))
 
-(defvar dart--number-re (rx symbol-start
-                            (zero-or-one ?-)
-                            (group (or (and (one-or-more digit)
-                                            (zero-or-one
-                                             (and ?. (one-or-more digit))))
-                                       (and ?. (one-or-more digit)))
-                                   (zero-or-one (and (or ?e ?E)
-                                                     (zero-or-one (or ?+ ?-))
-                                                     (one-or-more digit))))))
-
-(defvar dart--hex-number-re (rx symbol-start
-                                (zero-or-one ?-)
-                                (group (or "0x" "0X")
-                                       (one-or-more (any (?a . ?f)
-                                                         (?A . ?F)
-                                                         digit)))))
+;; https://dart.dev/guides/language/specifications/DartLangSpec-v2.10.pdf
+;; 17.5 Numbers
+(defvar dart--numeric-literal-re (rx-let
+                                     ((numeric-literal (| number hex-number))
+                                      (number (: (| (: (1+ digit) (? (: ?. (1+ digit))))
+                                                    (: ?. (1+ digit)))
+                                                 (? exponent)))
+                                      (exponent (: (| ?e ?E)
+                                                   (? (| ?+ ?-))
+                                                   (1+ digit)))
+                                      (hex-number (: ?0 (| ?x ?X) (1+ hex-digit))))
+                                   (rx bow numeric-literal eow)))
 
 (defvar dart--operator-declaration-re (rx "operator"
                                           (one-or-more space)
@@ -583,8 +579,7 @@ untyped parameters. For example, in
     ,(regexp-opt dart--keywords 'words)
     (,(regexp-opt dart--builtins 'words)  . font-lock-builtin-face)
     (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
-    (,dart--hex-number-re                 . (1 font-lock-constant-face))
-    (,dart--number-re                     . (1 font-lock-constant-face))
+    (,dart--numeric-literal-re            . font-lock-constant-face)
     (,dart--metadata-re                   . font-lock-constant-face)
     (,dart--constants-re                   . font-lock-constant-face)
     (,(regexp-opt dart--types 'words)     . font-lock-type-face)
