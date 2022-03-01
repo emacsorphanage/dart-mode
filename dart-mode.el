@@ -581,7 +581,7 @@ untyped parameters. For example, in
     (,(regexp-opt dart--constants 'words) . font-lock-constant-face)
     (,dart--numeric-literal-re            . font-lock-constant-face)
     (,dart--metadata-re                   . font-lock-constant-face)
-    (,dart--constants-re                   . font-lock-constant-face)
+    (,dart--constants-re                  . font-lock-constant-face)
     (,(regexp-opt dart--types 'words)     . font-lock-type-face)
     (,dart--types-re                      . font-lock-type-face)
     (dart--function-declaration-func      . font-lock-function-name-face)
