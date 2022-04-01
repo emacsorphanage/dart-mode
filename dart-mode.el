@@ -677,6 +677,7 @@ Key bindings:
   (modify-syntax-entry ?\> ".")
   (modify-syntax-entry ?\< ".")
   (setq-local electric-indent-chars '(?\n ?\) ?\] ?\}))
+  (setq electric-indent-inhibit t)
   (setq-local comment-start "//")
   (setq-local comment-end "")
   (setq fill-column 80)
