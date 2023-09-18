@@ -13,6 +13,7 @@ package-lint: build
 	eask lint package
 
 test-setup: build compile
+	eask install-deps --dev
 
 test-font-lock: test-setup
 	eask test ert test/test/test-font-lock.el
