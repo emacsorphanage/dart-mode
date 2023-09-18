@@ -1,9 +1,15 @@
 ;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
-;; Author: https://github.com/bradyt/dart-mode/issues
-;; URL: https://github.com/bradyt/dart-mode
+;; Copyright (C) 2015-2018  Natalie Weizenbaum
+;; Copyright (C) 2018-2023  Brady Trainor
+;; Copyright (C) 2023  Shen, Jen-Chieh
+
+;; Author: Natalie Weizenbaum <nex342@gmail.com>
+;; Maintainer: Brady Trainor
+;;             Jen-Chieh Shen <jcs090218@gmail.com>
+;; URL: https://github.com/emacsorphanage/dart-mode
 ;; Version: 1.0.7
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "26.3"))
 ;; Keywords: languages
 
 ;; The author is Brady Trainor, but removed from keywords in attempt
