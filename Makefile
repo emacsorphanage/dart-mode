@@ -1,33 +1,34 @@
-all: package-lint dart-mode.elc test
+all: package-lint compile test
 
-.cask:
-	cask install
+ci: clean build compile
 
-package-lint: .cask
-	cask emacs -batch -l package-lint.el -f package-lint-batch-and-exit
+build:
+	eask package
+	eask install
 
-dart-mode.elc:
-	emacs -batch -f batch-byte-compile dart-mode.el
+compile:
+	eask compile
 
-test-setup: .cask dart-mode.elc
+package-lint: build
+	eask lint package
+
+test-setup: build compile
 
 test-font-lock: test-setup
-	cask emacs -batch -l dart-mode.elc -l ert -l test/test-font-lock.el -f ert-run-tests-batch-and-exit
+	eask test ert test/test/test-font-lock.el
 
 test-indentation: test-setup
-	cask emacs -batch -l dart-mode.elc -l ert -l test/test-indentation.el -f ert-run-tests-batch-and-exit
+	eask test ert test/test-indentation.el
 
 test: test-font-lock test-indentation
 
 checkdoc:
-	emacs -batch -eval "(when (>= emacs-major-version 25) (checkdoc-file \"dart-mode.el\"))"
+	eask lint checkdoc
 
-clean: clean-cask clean-elc
-
-clean-cask:
-	rm -rf .cask
+clean:
+	eask clean all
 
 clean-elc:
-	rm dart-mode.elc
+	eask clean elc
 
 .PHONY: test
