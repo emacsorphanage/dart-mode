@@ -2,7 +2,6 @@
 
 ;; Copyright (C) 2015-2018  Natalie Weizenbaum
 ;; Copyright (C) 2018-2023  Brady Trainor
-;; Copyright (C) 2023  Shen, Jen-Chieh
 
 ;; Author: Natalie Weizenbaum <nex342@gmail.com>
 ;; Maintainer: Brady Trainor
