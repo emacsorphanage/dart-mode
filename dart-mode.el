@@ -9,7 +9,7 @@
 ;;             Jen-Chieh Shen <jcs090218@gmail.com>
 ;; URL: https://github.com/emacsorphanage/dart-mode
 ;; Version: 1.0.7
-;; Package-Requires: ((emacs "26.3"))
+;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: languages
 
 ;; The author is Brady Trainor, but removed from keywords in attempt
