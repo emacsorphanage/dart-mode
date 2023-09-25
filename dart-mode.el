@@ -24,20 +24,22 @@
 ;; option.
 
 ;;; Commentary:
-
+;;
 ;; Major mode for editing Dart files.
-
+;;
 ;; Provides basic syntax highlighting and indentation.
+;;
 
 ;;; Code:
 
 ;;; Configuration
 
-(defvar dart-mode-map (make-sparse-keymap)
+(defvar dart-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "<backtab>") #'dart-dedent-simple)
+    (define-key map (kbd "C-c C-i") #'indent-according-to-mode)
+    map)
   "Keymap used in dart-mode buffers.")
-(define-key dart-mode-map (kbd "<backtab>") 'dart-dedent-simple)
-(define-key dart-mode-map (kbd "C-c C-i") 'indent-according-to-mode)
-
 
 ;;; Indentation
 
@@ -194,36 +196,40 @@ indentation levels from right to left."
     "null"
     "true"))
 
-(defvar dart--async-keywords-re (rx word-start
-                                    (or "async" "await" "sync" "yield")
-                                    word-end
-                                    (zero-or-one ?*)))
+(defvar dart--async-keywords-re
+  (rx word-start
+      (or "async" "await" "sync" "yield")
+      word-end
+      (zero-or-one ?*)))
 
 ;; https://dart.dev/guides/language/specifications/DartLangSpec-v2.10.pdf
 ;; 17.5 Numbers
-(defvar dart--numeric-literal-re (rx-let
-                                     ((numeric-literal (| number hex-number))
-                                      (number (: (| (: (1+ digit) (? (: ?. (1+ digit))))
-                                                    (: ?. (1+ digit)))
-                                                 (? exponent)))
-                                      (exponent (: (| ?e ?E)
-                                                   (? (| ?+ ?-))
-                                                   (1+ digit)))
-                                      (hex-number (: ?0 (| ?x ?X) (1+ hex-digit))))
-                                   (rx bow numeric-literal eow)))
+(defvar dart--numeric-literal-re
+  (rx-let
+      ((numeric-literal (| number hex-number))
+       (number (: (| (: (1+ digit) (? (: ?. (1+ digit))))
+                     (: ?. (1+ digit)))
+                  (? exponent)))
+       (exponent (: (| ?e ?E)
+                    (? (| ?+ ?-))
+                    (1+ digit)))
+       (hex-number (: ?0 (| ?x ?X) (1+ hex-digit))))
+    (rx bow numeric-literal eow)))
 
-(defvar dart--operator-declaration-re (rx "operator"
-                                          (one-or-more space)
-                                          (group
-                                           (one-or-more (not (any ?\())))))
+(defvar dart--operator-declaration-re
+  (rx "operator"
+      (one-or-more space)
+      (group
+       (one-or-more (not (any ?\())))))
 
-(eval-and-compile (defun dart--identifier (&optional case)
-   `(and (or word-start symbol-start)
-         (zero-or-more (any ?$ ?_))
-         ,(if case
-              case
-            'alpha)
-         (zero-or-more (or ?$ ?_ alnum)))))
+(eval-and-compile
+  (defun dart--identifier (&optional case)
+    `(and (or word-start symbol-start)
+          (zero-or-more (any ?$ ?_))
+          ,(if case
+               case
+             'alpha)
+          (zero-or-more (or ?$ ?_ alnum)))))
 
 (defvar dart--metadata-re (rx ?@ (eval (dart--identifier))))
 
@@ -351,30 +357,30 @@ For example, \"compareTo\" in \"  int compareTo(num other);\" would be
 matched."
   (catch 'result
     (let (beg end)
-        (while (re-search-forward
-                (rx (and (not (any ?\.)) (group (eval (dart--identifier 'lower)))) ?\() limit t)
-          (setq beg (match-beginning 1))
-          (setq end (match-end 1))
-          (condition-case nil
-              (progn
-                (up-list)
-                (when (and (< (point) (point-max))
-                           (= (char-after (point)) ?\;))
-                  (goto-char beg)
-                  (back-to-indentation)
-                  (when (and (= (current-column) 2)
-                             (not (looking-at "return"))
-                             (string-match-p
-                              " " (buffer-substring-no-properties
-                                   (point) beg))
-                             (not (string-match-p
-                                   "=" (buffer-substring-no-properties
-                                        (point) beg))))
-                    (goto-char end)
-                    (set-match-data (list beg end))
-                    (throw 'result t))))
-            (scan-error nil))
-          (goto-char end)))
+      (while (re-search-forward
+              (rx (and (not (any ?\.)) (group (eval (dart--identifier 'lower)))) ?\() limit t)
+        (setq beg (match-beginning 1))
+        (setq end (match-end 1))
+        (condition-case nil
+            (progn
+              (up-list)
+              (when (and (< (point) (point-max))
+                         (= (char-after (point)) ?\;))
+                (goto-char beg)
+                (back-to-indentation)
+                (when (and (= (current-column) 2)
+                           (not (looking-at "return"))
+                           (string-match-p
+                            " " (buffer-substring-no-properties
+                                 (point) beg))
+                           (not (string-match-p
+                                 "=" (buffer-substring-no-properties
+                                      (point) beg))))
+                  (goto-char end)
+                  (set-match-data (list beg end))
+                  (throw 'result t))))
+          (scan-error nil))
+        (goto-char end)))
     (throw 'result nil)))
 
 (defun dart--declared-identifier-func (limit)
@@ -693,5 +699,4 @@ Key bindings:
   (setq-local syntax-propertize-function 'dart-syntax-propertize-function))
 
 (provide 'dart-mode)
-
 ;;; dart-mode.el ends here
