@@ -25,9 +25,8 @@
 
 ;;; Commentary:
 
-;; Major mode for editing Dart files.
-
-;; Provides basic syntax highlighting and indentation.
+;; This package implements a major-mode for the Dart language,
+;; providing basic syntax highlighting and indentation support.
 
 ;;; Code:
 
