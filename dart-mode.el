@@ -1,15 +1,31 @@
 ;;; dart-mode.el --- Major mode for editing Dart files -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2015-2018  Natalie Weizenbaum
+;; Copyright (C) 2011-2018  Google Inc.
 ;; Copyright (C) 2018-2023  Brady Trainor
 
-;; Author: Natalie Weizenbaum <nex342@gmail.com>
-;; Maintainer: Brady Trainor
-;;             Jen-Chieh Shen <jcs090218@gmail.com>
+;; Author: Brady Trainor
+;; Maintainer: Jen-Chieh Shen <jcs090218@gmail.com>
 ;; URL: https://github.com/emacsorphanage/dart-mode
 ;; Version: 1.0.7
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: languages
+
+;;; About the previous implementation:
+
+;; To a not fully determined extend, this implementation derives from an
+;; earlier implementation by Natalie Weizenbaum, for which the copyright
+;; holder is Google.
+
+;; In the discussion attached to [1], Brady Trainor implicitly repeats
+;; his claim, that no code from that earlier implementation remains.
+;; This seems plausible, but, as mentioned in that discussion, would have
+;; to be studied in more detail, to be absolutely certain, which is why I
+;; am restoring Google's copyright notice.
+
+;; [1]: https://github.com/emacsorphanage/dart-mode/commit/69d7c23be7518bcb004860120ba3ea2a7dcfb6de
+
+;; Bradly Trainor added the below statement in 2021.  It is preserved
+;; unchanged:
 
 ;; The author is Brady Trainor, but removed from keywords in attempt
 ;; to avoid some class of robots.
