@@ -372,7 +372,9 @@ matched."
   (catch 'result
     (let (beg end)
       (while (re-search-forward
-              (rx (and (not (any ?\.)) (group (eval (dart--identifier 'lower)))) ?\() limit t)
+              (rx (and (not (any ?\.)) (group (eval (dart--identifier 'lower))))
+                  ?\()
+              limit t)
         (setq beg (match-beginning 1))
         (setq end (match-end 1))
         (condition-case nil
@@ -595,9 +597,9 @@ untyped parameters. For example, in
 
 (defvar dart-font-lock-keywords-1
   `((,(regexp-opt dart--file-directives 'words) . font-lock-builtin-face)
-    (dart--function-declaration-func            . font-lock-function-name-face)
-    (,dart--operator-declaration-re             . (1 font-lock-function-name-face))
-    (dart--abstract-method-func                 . font-lock-function-name-face)))
+    (dart--function-declaration-func . font-lock-function-name-face)
+    (,dart--operator-declaration-re  . (1 font-lock-function-name-face))
+    (dart--abstract-method-func      . font-lock-function-name-face)))
 
 (defvar dart-font-lock-keywords-2
   `(,dart--async-keywords-re
@@ -666,19 +668,23 @@ strings."
       ;; Unless rawp, ensure an even number of backslashes
       (when (or (looking-at (concat (unless rawp (rx (zero-or-more ?\\ ?\\)))
                                     string-delimiter))
-                (re-search-forward (concat (unless rawp (rx (not (any ?\\)) (zero-or-more ?\\ ?\\)))
+                (re-search-forward (concat (unless rawp
+                                             (rx (not (any ?\\))
+                                                 (zero-or-more ?\\ ?\\)))
                                            string-delimiter)
                                    end t))
         (let ((eos (match-end 0)))
           ;; Set end of string fence delimiter
-          (put-text-property (1- eos) eos 'syntax-table (string-to-syntax "|") nil)
+          (put-text-property (1- eos) eos 'syntax-table (string-to-syntax "|"))
           ;; For all strings, remove fence property between fences
           ;; For raw strings, set all backslashes to punctuation syntax
           (dolist (pt (number-sequence (1+ bos) (- eos 2)))
-            (when (equal (get-text-property pt 'syntax-table) (string-to-syntax "|"))
+            (when (equal (get-text-property pt 'syntax-table)
+                         (string-to-syntax "|"))
               (remove-text-properties pt (1+ pt) 'syntax-table))
             (when (and rawp (equal (char-after pt) ?\\))
-              (put-text-property pt (1+ pt) 'syntax-table (string-to-syntax ".") nil)))
+              (put-text-property pt (1+ pt) 'syntax-table
+                                 (string-to-syntax ".") nil)))
           (goto-char eos))))))
 
 
