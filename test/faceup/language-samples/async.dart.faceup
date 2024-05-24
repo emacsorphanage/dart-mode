@@ -1,5 +1,5 @@
 «k:const» «v:oneSecond» = «t:Duration»(seconds: «c:1»);
-«x:// ...
+«m:// »«x:...
 »«t:Future»<«t:void»> «f:printWithDelay»(«t:String» «v:message») «k:async» {
   «k:await» «t:Future».delayed(oneSecond);
   print(message);
