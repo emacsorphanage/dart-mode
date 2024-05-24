@@ -2,30 +2,30 @@
   «t:String» «v:name»;
   «t:DateTime» «v:launchDate»;
 
-  «x:// Constructor, with syntactic sugar for assignment to members.
+  «m:// »«x:Constructor, with syntactic sugar for assignment to members.
 »  «t:Spacecraft»(«k:this».«v:name», «k:this».«v:launchDate») {
-    «x:// Initialization code goes here.
+    «m:// »«x:Initialization code goes here.
 »  }
 
-  «x:// Named constructor that forwards to the default one.
-»  «t:Spacecraft».unlaunched(«t:String» «v:name») : «k:this»(name, «c:null»);
+  «m:// »«x:Named constructor that forwards to the default one.
+»  «t:Spacecraft».«f:unlaunched»(«t:String» «v:name») : «k:this»(name, «c:null»);
 
-  «t:int» «b:get» «v:launchYear» => launchDate?.year; «x:// read-only non-final property
+  «t:int» «b:get» «v:launchYear» => launchDate?.year; «m:// »«x:read-only non-final property
 »
-  «x:// Method.
+  «m:// »«x:Method.
 »  «t:void» «f:describe»() {
-    print(«s:'Spacecraft: »«v:$name»«s:'»);
+    «f:print»(«s:'Spacecraft: »«v:$name»«s:'»);
     «k:if» (launchDate != «c:null») {
-      «t:int» «v:years» = «t:DateTime».now().difference(launchDate).inDays ~/ «c:365»;
-      print(«s:'Launched: »«v:$launchYear»«s: (»«v:$years»«s: years ago)'»);
+      «t:int» «v:years» = «t:DateTime».«f:now»().«f:difference»(launchDate).inDays ~/ «c:365»;
+      «f:print»(«s:'Launched: »«v:$launchYear»«s: (»«v:$years»«s: years ago)'»);
     } «k:else» {
-      print(«s:'Unlaunched'»);
+      «f:print»(«s:'Unlaunched'»);
     }
   }
 }
 
 «k:var» «v:voyager» = «t:Spacecraft»(«s:'Voyager I'», «t:DateTime»(«c:1977», «c:9», «c:5»));
-voyager.describe();
+voyager.«f:describe»();
 
-«k:var» «v:voyager3» = «t:Spacecraft».unlaunched(«s:'Voyager III'»);
-voyager3.describe();
+«k:var» «v:voyager3» = «t:Spacecraft».«f:unlaunched»(«s:'Voyager III'»);
+voyager3.«f:describe»();

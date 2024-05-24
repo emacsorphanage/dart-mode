@@ -1,12 +1,12 @@
-«x:// Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
+«m:// »«x:Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
+»«m:// »«x:for details. All rights reserved. Use of this source code is governed by a
+»«m:// »«x:BSD-style license that can be found in the LICENSE file.
 »
 «b:part» of dart.«k:async»;
 
-«x:// -------------------------------------------------------------------
-// Core Stream types
-// -------------------------------------------------------------------
+«m:// »«x:-------------------------------------------------------------------
+»«m:// »«x:Core Stream types
+»«m:// »«x:-------------------------------------------------------------------
 »
 «b:typedef» «t:void» «t:_TimerCallback»();
 
@@ -89,7 +89,7 @@
    * If mixins become compatible with const constructors, we may use a
    * stream mixin instead of extending Stream from a const class.
    */»
-  «k:const» «t:Stream»._«f:internal»();
+  «k:const» «t:Stream».«f:_internal»();
 
   «x:/**
    * Creates an empty broadcast stream.
@@ -97,7 +97,7 @@
    * This is a stream which does nothing except sending a done event
    * when it's listened to.
    */»
-  «k:const» «b:factory» «t:Stream».empty() = «t:_EmptyStream»<«t:T»>;
+  «k:const» «b:factory» «t:Stream».«f:empty»() = «t:_EmptyStream»<«t:T»>;
 
   «x:/**
    * Creates a new single-subscription stream from the future.
@@ -106,16 +106,16 @@
    * data or error, and then close with a done-event.
    */»
   «b:factory» «t:Stream».«f:fromFuture»(«t:Future»<«t:T»> «v:future») {
-    «x:// Use the controller's buffering to fill in the value even before
-»    «x:// the stream has a listener. For a single value, it's not worth it
-»    «x:// to wait for a listener before doing the `then` on the future.
+    «m:// »«x:Use the controller's buffering to fill in the value even before
+»    «m:// »«x:the stream has a listener. For a single value, it's not worth it
+»    «m:// »«x:to wait for a listener before doing the `then` on the future.
 »    «t:_StreamController»<«t:T»> «v:controller» = «k:new» «t:StreamController»<«t:T»>(«k:sync»: «c:true»);
-    future.then((«v:value») {
-      controller._add(value);
-      controller._closeUnchecked();
+    future.«f:then»((«v:value») {
+      controller.«f:_add»(value);
+      controller.«f:_closeUnchecked»();
     }, onError: («v:error», «v:stackTrace») {
-      controller._addError(error, stackTrace);
-      controller._closeUnchecked();
+      controller.«f:_addError»(error, stackTrace);
+      controller.«f:_closeUnchecked»();
     });
     «k:return» controller.stream;
   }
@@ -138,30 +138,30 @@
   «b:factory» «t:Stream».«f:fromFutures»(«t:Iterable»<«t:Future»<«t:T»>> «v:futures») {
     «t:_StreamController»<«t:T»> «v:controller» = «k:new» «t:StreamController»<«t:T»>(«k:sync»: «c:true»);
     «t:int» «v:count» = «c:0»;
-    «x:// Declare these as variables holding closures instead of as
-»    «x:// function declarations.
-»    «x:// This avoids creating a new closure from the functions for each future.
+    «m:// »«x:Declare these as variables holding closures instead of as
+»    «m:// »«x:function declarations.
+»    «m:// »«x:This avoids creating a new closure from the functions for each future.
 »    «k:var» «v:onValue» = («t:T» «v:value») {
       «k:if» (!controller.isClosed) {
-        controller._add(value);
-        «k:if» (--count == «c:0») controller._closeUnchecked();
+        controller.«f:_add»(value);
+        «k:if» (--count == «c:0») controller.«f:_closeUnchecked»();
       }
     };
     «k:var» «v:onError» = («v:error», «t:StackTrace» «v:stack») {
       «k:if» (!controller.isClosed) {
-        controller._addError(error, stack);
-        «k:if» (--count == «c:0») controller._closeUnchecked();
+        controller.«f:_addError»(error, stack);
+        «k:if» (--count == «c:0») controller.«f:_closeUnchecked»();
       }
     };
-    «x:// The futures are already running, so start listening to them immediately
-»    «x:// (instead of waiting for the stream to be listened on).
-»    «x:// If we wait, we might not catch errors in the futures in time.
+    «m:// »«x:The futures are already running, so start listening to them immediately
+»    «m:// »«x:(instead of waiting for the stream to be listened on).
+»    «m:// »«x:If we wait, we might not catch errors in the futures in time.
 »    «k:for» («k:var» «v:future» «k:in» futures) {
       count++;
-      future.then(onValue, onError: onError);
+      future.«f:then»(onValue, onError: onError);
     }
-    «x:// Use schedule microtask since controller is sync.
-»    «k:if» (count == «c:0») scheduleMicrotask(controller.close);
+    «m:// »«x:Use schedule microtask since controller is sync.
+»    «k:if» (count == «c:0») «f:scheduleMicrotask»(controller.close);
     «k:return» controller.stream;
   }
 
@@ -193,57 +193,57 @@
    * If [computation] is omitted the event values will all be `null`.
    */»
   «b:factory» «t:Stream».«f:periodic»(«t:Duration» «v:period»,
-      [«t:T» computation(«t:int» «v:computationCount»)]) {
+      [«t:T» «f:computation»(«t:int» «v:computationCount»)]) {
     «t:Timer» «v:timer»;
     «t:int» «v:computationCount» = «c:0»;
     «t:StreamController»<«t:T»> «v:controller»;
-    «x:// Counts the time that the Stream was running (and not paused).
+    «m:// »«x:Counts the time that the Stream was running (and not paused).
 »    «t:Stopwatch» «v:watch» = «k:new» «t:Stopwatch»();
 
     «t:void» «f:sendEvent»() {
-      watch.reset();
+      watch.«f:reset»();
       «t:T» «v:data»;
       «k:if» (computation != «c:null») {
         «k:try» {
-          data = computation(computationCount++);
+          data = «f:computation»(computationCount++);
         } «k:catch» («v:e», «v:s») {
-          controller.addError(e, s);
+          controller.«f:addError»(e, s);
           «k:return»;
         }
       }
-      controller.add(data);
+      controller.«f:add»(data);
     }
 
     «t:void» «f:startPeriodicTimer»() {
       «k:assert»(timer == «c:null»);
-      timer = «k:new» «t:Timer».periodic(period, («t:Timer» «v:timer») {
-        sendEvent();
+      timer = «k:new» «t:Timer».«f:periodic»(period, («t:Timer» «v:timer») {
+        «f:sendEvent»();
       });
     }
 
     controller = «k:new» «t:StreamController»<«t:T»>(
         «k:sync»: «c:true»,
         onListen: () {
-          watch.start();
-          startPeriodicTimer();
+          watch.«f:start»();
+          «f:startPeriodicTimer»();
         },
         onPause: () {
-          timer.cancel();
+          timer.«f:cancel»();
           timer = «c:null»;
-          watch.stop();
+          watch.«f:stop»();
         },
         onResume: () {
           «k:assert»(timer == «c:null»);
           «t:Duration» «v:elapsed» = watch.elapsed;
-          watch.start();
+          watch.«f:start»();
           timer = «k:new» «t:Timer»(period - elapsed, () {
             timer = «c:null»;
-            startPeriodicTimer();
-            sendEvent();
+            «f:startPeriodicTimer»();
+            «f:sendEvent»();
           });
         },
         onCancel: () {
-          «k:if» (timer != «c:null») timer.cancel();
+          «k:if» (timer != «c:null») timer.«f:cancel»();
           timer = «c:null»;
           «k:return» «t:Future»._nullFuture;
         });
@@ -291,7 +291,7 @@
    * The resulting stream is a broadcast stream if [source] is.
    */»
   «b:factory» «t:Stream».«f:eventTransformed»(
-      «t:Stream» «v:source», «t:EventSink» mapSink(«t:EventSink»<«t:T»> «v:sink»)) {
+      «t:Stream» «v:source», «t:EventSink» «f:mapSink»(«t:EventSink»<«t:T»> «v:sink»)) {
     «k:return» «k:new» «t:_BoundSinkStream»(source, mapSink);
   }
 
@@ -333,8 +333,8 @@
    * subscription when there are no listeners.
    */»
   «t:Stream»<«t:T»> «f:asBroadcastStream»(
-      {«t:void» onListen(«t:StreamSubscription»<«t:T»> «v:subscription»),
-      «t:void» onCancel(«t:StreamSubscription»<«t:T»> «v:subscription»)}) {
+      {«t:void» «f:onListen»(«t:StreamSubscription»<«t:T»> «v:subscription»),
+      «t:void» «f:onCancel»(«t:StreamSubscription»<«t:T»> «v:subscription»)}) {
     «k:return» «k:new» «t:_AsBroadcastStream»<«t:T»>(«k:this», onListen, onCancel);
   }
 
@@ -373,8 +373,8 @@
    * the subscription doesn't receive events and none of the
    * event handler functions are called.
    */»
-  «t:StreamSubscription»<«t:T»> «f:listen»(«t:void» onData(«t:T» «v:event»),
-      {«b:Function» «v:onError», «t:void» onDone(), «t:bool» «v:cancelOnError»});
+  «t:StreamSubscription»<«t:T»> «f:listen»(«t:void» «f:onData»(«t:T» «v:event»),
+      {«b:Function» «v:onError», «t:void» «f:onDone»(), «t:bool» «v:cancelOnError»});
 
   «x:/**
    * Creates a new stream from this stream that discards some elements.
@@ -389,7 +389,7 @@
    * If a broadcast stream is listened to more than once, each subscription
    * will individually perform the `test`.
    */»
-  «t:Stream»<«t:T»> «f:where»(«t:bool» test(«t:T» «v:event»)) {
+  «t:Stream»<«t:T»> «f:where»(«t:bool» «f:test»(«t:T» «v:event»)) {
     «k:return» «k:new» «t:_WhereStream»<«t:T»>(«k:this», test);
   }
 
@@ -419,7 +419,7 @@
    * separate events, and those events are attempted encoded or decoded
    * independently.
    */»
-  «t:Stream»<«t:S»> «v:map»<«t:S»>(«t:S» convert(«t:T» «v:event»)) {
+  «t:Stream»<«t:S»> «v:map»<«t:S»>(«t:S» «f:convert»(«t:T» «v:event»)) {
     «k:return» «k:new» «t:_MapStream»<«t:T», «t:S»>(«k:this», convert);
   }
 
@@ -433,7 +433,7 @@
    *
    * The returned stream is a broadcast stream if this stream is.
    */»
-  «t:Stream»<«t:E»> «v:asyncMap»<«t:E»>(«t:FutureOr»<«t:E»> convert(«t:T» «v:event»)) {
+  «t:Stream»<«t:E»> «v:asyncMap»<«t:E»>(«t:FutureOr»<«t:E»> «f:convert»(«t:T» «v:event»)) {
     «t:_StreamControllerBase»<«t:E»> «v:controller»;
     «t:StreamSubscription»<«t:T»> «v:subscription»;
 
@@ -442,42 +442,42 @@
       «k:assert»(controller «k:is» «t:_StreamController»<«t:E»> ||
           controller «k:is» «t:_BroadcastStreamController»);
       «k:final» «v:addError» = controller._addError;
-      subscription = «k:this».listen((«t:T» «v:event») {
+      subscription = «k:this».«f:listen»((«t:T» «v:event») {
         «t:FutureOr»<«t:E»> «v:newValue»;
         «k:try» {
-          newValue = convert(event);
+          newValue = «f:convert»(event);
         } «k:catch» («v:e», «v:s») {
-          controller.addError(e, s);
+          controller.«f:addError»(e, s);
           «k:return»;
         }
         «k:if» (newValue «k:is» «t:Future»<«t:E»>) {
-          subscription.pause();
+          subscription.«f:pause»();
           newValue
-              .then(add, onError: addError)
-              .whenComplete(subscription.resume);
+              .«f:then»(add, onError: addError)
+              .«f:whenComplete»(subscription.resume);
         } «k:else» {
-          controller.add(newValue);
+          controller.«f:add»(newValue);
         }
       }, onError: addError, onDone: controller.close);
     }
 
     «k:if» («k:this».isBroadcast) {
-      controller = «k:new» «t:StreamController»<«t:E»>.broadcast(
+      controller = «k:new» «t:StreamController»<«t:E»>.«f:broadcast»(
           onListen: onListen,
           onCancel: () {
-            subscription.cancel();
+            subscription.«f:cancel»();
           },
           «k:sync»: «c:true»);
     } «k:else» {
       controller = «k:new» «t:StreamController»<«t:E»>(
           onListen: onListen,
           onPause: () {
-            subscription.pause();
+            subscription.«f:pause»();
           },
           onResume: () {
-            subscription.resume();
+            subscription.«f:resume»();
           },
-          onCancel: () => subscription.cancel(),
+          onCancel: () => subscription.«f:cancel»(),
           «k:sync»: «c:true»);
     }
     «k:return» controller.stream;
@@ -501,46 +501,46 @@
    *
    * The returned stream is a broadcast stream if this stream is.
    */»
-  «t:Stream»<«t:E»> «v:asyncExpand»<«t:E»>(«t:Stream»<«t:E»> convert(«t:T» «v:event»)) {
+  «t:Stream»<«t:E»> «v:asyncExpand»<«t:E»>(«t:Stream»<«t:E»> «f:convert»(«t:T» «v:event»)) {
     «t:_StreamControllerBase»<«t:E»> «v:controller»;
     «t:StreamSubscription»<«t:T»> «v:subscription»;
     «t:void» «f:onListen»() {
       «k:assert»(controller «k:is» «t:_StreamController» ||
           controller «k:is» «t:_BroadcastStreamController»);
-      subscription = «k:this».listen((«t:T» «v:event») {
+      subscription = «k:this».«f:listen»((«t:T» «v:event») {
         «t:Stream»<«t:E»> «v:newStream»;
         «k:try» {
-          newStream = convert(event);
+          newStream = «f:convert»(event);
         } «k:catch» («v:e», «v:s») {
-          controller.addError(e, s);
+          controller.«f:addError»(e, s);
           «k:return»;
         }
         «k:if» (newStream != «c:null») {
-          subscription.pause();
-          controller.addStream(newStream).whenComplete(subscription.resume);
+          subscription.«f:pause»();
+          controller.«f:addStream»(newStream).«f:whenComplete»(subscription.resume);
         }
       },
-          onError: controller._addError, «x:// Avoid Zone error replacement.
+          onError: controller._addError, «m:// »«x:Avoid Zone error replacement.
 »          onDone: controller.close);
     }
 
     «k:if» («k:this».isBroadcast) {
-      controller = «k:new» «t:StreamController»<«t:E»>.broadcast(
+      controller = «k:new» «t:StreamController»<«t:E»>.«f:broadcast»(
           onListen: onListen,
           onCancel: () {
-            subscription.cancel();
+            subscription.«f:cancel»();
           },
           «k:sync»: «c:true»);
     } «k:else» {
       controller = «k:new» «t:StreamController»<«t:E»>(
           onListen: onListen,
           onPause: () {
-            subscription.pause();
+            subscription.«f:pause»();
           },
           onResume: () {
-            subscription.resume();
+            subscription.«f:resume»();
           },
-          onCancel: () => subscription.cancel(),
+          onCancel: () => subscription.«f:cancel»(),
           «k:sync»: «c:true»);
     }
     «k:return» controller.stream;
@@ -578,7 +578,7 @@
    * If a broadcast stream is listened to more than once, each subscription
    * will individually perform the `test` and handle the error.
    */»
-  «t:Stream»<«t:T»> «f:handleError»(«b:Function» «v:onError», {«t:bool» test(«v:error»)}) {
+  «t:Stream»<«t:T»> «f:handleError»(«b:Function» «v:onError», {«t:bool» «f:test»(«v:error»)}) {
     «k:return» «k:new» «t:_HandleErrorStream»<«t:T»>(«k:this», onError, test);
   }
 
@@ -601,7 +601,7 @@
    * If a broadcast stream is listened to more than once, each subscription
    * will individually call `convert` and expand the events.
    */»
-  «t:Stream»<«t:S»> «v:expand»<«t:S»>(«t:Iterable»<«t:S»> convert(«t:T» «v:element»)) {
+  «t:Stream»<«t:S»> «v:expand»<«t:S»>(«t:Iterable»<«t:S»> «f:convert»(«t:T» «v:element»)) {
     «k:return» «k:new» «t:_ExpandStream»<«t:T», «t:S»>(«k:this», convert);
   }
 
@@ -622,7 +622,7 @@
    * method fails in the same way.
    */»
   «t:Future» «f:pipe»(«t:StreamConsumer»<«t:T»> «v:streamConsumer») {
-    «k:return» streamConsumer.addStream(«k:this»).then((«v:_») => streamConsumer.close());
+    «k:return» streamConsumer.«f:addStream»(«k:this»).«f:then»((«v:_») => streamConsumer.«f:close»());
   }
 
   «x:/**
@@ -653,7 +653,7 @@
    * correspond to specific events from the source string.
    */»
   «t:Stream»<«t:S»> «v:transform»<«t:S»>(«t:StreamTransformer»<«t:T», «t:S»> «v:streamTransformer») {
-    «k:return» streamTransformer.bind(«k:this»);
+    «k:return» streamTransformer.«f:bind»(«k:this»);
   }
 
   «x:/**
@@ -675,17 +675,17 @@
    * the returned future is completed with that error,
    * and processing is stopped.
    */»
-  «t:Future»<«t:T»> «f:reduce»(«t:T» combine(«t:T» «v:previous», «t:T» «v:element»)) {
+  «t:Future»<«t:T»> «f:reduce»(«t:T» «f:combine»(«t:T» «v:previous», «t:T» «v:element»)) {
     «t:_Future»<«t:T»> «v:result» = «k:new» «t:_Future»<«t:T»>();
     «t:bool» «v:seenFirst» = «c:false»;
     «t:T» «v:value»;
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
           «k:if» (seenFirst) {
-            _runUserCode(() => combine(value, element), («t:T» «v:newValue») {
+            «f:_runUserCode»(() => «f:combine»(value, element), («t:T» «v:newValue») {
               value = newValue;
-            }, _cancelAndErrorClosure(subscription, result));
+            }, «f:_cancelAndErrorClosure»(subscription, result));
           } «k:else» {
             value = element;
             seenFirst = «c:true»;
@@ -695,15 +695,15 @@
         onDone: () {
           «k:if» (!seenFirst) {
             «k:try» {
-              «x:// Throw and recatch, instead of just doing
-»              «x://  _completeWithErrorCallback, e, theError, StackTrace.current),
-»              «x:// to ensure that the stackTrace is set on the error.
-»              «k:throw» «t:IterableElementError».noElement();
+              «m:// »«x:Throw and recatch, instead of just doing
+»              «m://  »«x:_completeWithErrorCallback, e, theError, StackTrace.current),
+»              «m:// »«x:to ensure that the stackTrace is set on the error.
+»              «k:throw» «t:IterableElementError».«f:noElement»();
             } «k:catch» («v:e», «v:s») {
-              _completeWithErrorCallback(result, e, s);
+              «f:_completeWithErrorCallback»(result, e, s);
             }
           } «k:else» {
-            result._complete(value);
+            result.«f:_complete»(value);
           }
         },
         cancelOnError: «c:true»);
@@ -727,19 +727,19 @@
    * the returned future is completed with that error,
    * and processing is stopped.
    */»
-  «t:Future»<«t:S»> «v:fold»<«t:S»>(«t:S» «v:initialValue», «t:S» combine(«t:S» «v:previous», «t:T» «v:element»)) {
+  «t:Future»<«t:S»> «v:fold»<«t:S»>(«t:S» «v:initialValue», «t:S» «f:combine»(«t:S» «v:previous», «t:T» «v:element»)) {
     «t:_Future»<«t:S»> «v:result» = «k:new» «t:_Future»<«t:S»>();
     «t:S» «v:value» = initialValue;
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
-          _runUserCode(() => combine(value, element), («t:S» «v:newValue») {
+          «f:_runUserCode»(() => «f:combine»(value, element), («t:S» «v:newValue») {
             value = newValue;
-          }, _cancelAndErrorClosure(subscription, result));
+          }, «f:_cancelAndErrorClosure»(subscription, result));
         },
         onError: result._completeError,
         onDone: () {
-          result._complete(value);
+          result.«f:_complete»(value);
         },
         cancelOnError: «c:true»);
     «k:return» result;
@@ -764,21 +764,21 @@
     «t:StringBuffer» «v:buffer» = «k:new» «t:StringBuffer»();
     «t:StreamSubscription» «v:subscription»;
     «t:bool» «v:first» = «c:true»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
           «k:if» (!first) {
-            buffer.write(separator);
+            buffer.«f:write»(separator);
           }
           first = «c:false»;
           «k:try» {
-            buffer.write(element);
+            buffer.«f:write»(element);
           } «k:catch» («v:e», «v:s») {
-            _cancelAndErrorWithReplacement(subscription, result, e, s);
+            «f:_cancelAndErrorWithReplacement»(subscription, result, e, s);
           }
         },
         onError: result._completeError,
         onDone: () {
-          result._complete(buffer.toString());
+          result.«f:_complete»(buffer.«f:toString»());
         },
         cancelOnError: «c:true»);
     «k:return» result;
@@ -799,17 +799,17 @@
   «t:Future»<«t:bool»> «f:contains»(«t:Object» «v:needle») {
     «t:_Future»<«t:bool»> «v:future» = «k:new» «t:_Future»<«t:bool»>();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
-          _runUserCode(() => (element == needle), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => (element == needle), («t:bool» «v:isMatch») {
             «k:if» (isMatch) {
-              _cancelAndValue(subscription, future, «c:true»);
+              «f:_cancelAndValue»(subscription, future, «c:true»);
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(«c:false»);
+          future.«f:_complete»(«c:false»);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -825,18 +825,18 @@
    * the returned future completes with that error,
    * and processing stops.
    */»
-  «t:Future» «f:forEach»(«t:void» action(«t:T» «v:element»)) {
+  «t:Future» «f:forEach»(«t:void» «f:action»(«t:T» «v:element»)) {
     «t:_Future» «v:future» = «k:new» «t:_Future»();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
-          «x:// TODO(floitsch): the type should be 'void' and inferred.
-»          _runUserCode<«b:dynamic»>(() => action(element), («v:_») {},
-              _cancelAndErrorClosure(subscription, future));
+          «m:// »«x:TODO(floitsch): the type should be 'void' and inferred.
+»          _runUserCode<«b:dynamic»>(() => «f:action»(element), («v:_») {},
+              «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(«c:null»);
+          future.«f:_complete»(«c:null»);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -856,20 +856,20 @@
    * the returned future is completed with that error,
    * and processing stops.
    */»
-  «t:Future»<«t:bool»> «f:every»(«t:bool» test(«t:T» «v:element»)) {
+  «t:Future»<«t:bool»> «f:every»(«t:bool» «f:test»(«t:T» «v:element»)) {
     «t:_Future»<«t:bool»> «v:future» = «k:new» «t:_Future»<«t:bool»>();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
-          _runUserCode(() => test(element), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => «f:test»(element), («t:bool» «v:isMatch») {
             «k:if» (!isMatch) {
-              _cancelAndValue(subscription, future, «c:false»);
+              «f:_cancelAndValue»(subscription, future, «c:false»);
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(«c:true»);
+          future.«f:_complete»(«c:true»);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -889,20 +889,20 @@
    * the returned future is completed with that error,
    * and processing stops.
    */»
-  «t:Future»<«t:bool»> «f:any»(«t:bool» test(«t:T» «v:element»)) {
+  «t:Future»<«t:bool»> «f:any»(«t:bool» «f:test»(«t:T» «v:element»)) {
     «t:_Future»<«t:bool»> «v:future» = «k:new» «t:_Future»<«t:bool»>();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:element») {
-          _runUserCode(() => test(element), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => «f:test»(element), («t:bool» «v:isMatch») {
             «k:if» (isMatch) {
-              _cancelAndValue(subscription, future, «c:true»);
+              «f:_cancelAndValue»(subscription, future, «c:true»);
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(«c:false»);
+          future.«f:_complete»(«c:false»);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -924,13 +924,13 @@
   «t:Future»<«t:int»> «b:get» «v:length» {
     «t:_Future»<«t:int»> «v:future» = «k:new» «t:_Future»<«t:int»>();
     «t:int» «v:count» = «c:0»;
-    «k:this».listen(
+    «k:this».«f:listen»(
         («v:_») {
           count++;
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(count);
+          future.«f:_complete»(count);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -953,13 +953,13 @@
   «t:Future»<«t:bool»> «b:get» «v:isEmpty» {
     «t:_Future»<«t:bool»> «v:future» = «k:new» «t:_Future»<«t:bool»>();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («v:_») {
-          _cancelAndValue(subscription, future, «c:false»);
+          «f:_cancelAndValue»(subscription, future, «c:false»);
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(«c:true»);
+          future.«f:_complete»(«c:true»);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -986,13 +986,13 @@
   «t:Future»<«t:List»<«t:T»>> «f:toList»() {
     «t:List»<«t:T»> «v:result» = <«t:T»>[];
     «t:_Future»<«t:List»<«t:T»>> «v:future» = «k:new» «t:_Future»<«t:List»<«t:T»>>();
-    «k:this».listen(
+    «k:this».«f:listen»(
         («t:T» «v:data») {
-          result.add(data);
+          result.«f:add»(data);
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(result);
+          future.«f:_complete»(result);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -1018,13 +1018,13 @@
   «t:Future»<«t:Set»<«t:T»>> «f:toSet»() {
     «t:Set»<«t:T»> «v:result» = «k:new» «t:Set»<«t:T»>();
     «t:_Future»<«t:Set»<«t:T»>> «v:future» = «k:new» «t:_Future»<«t:Set»<«t:T»>>();
-    «k:this».listen(
+    «k:this».«f:listen»(
         («t:T» «v:data») {
-          result.add(data);
+          result.«f:add»(data);
         },
         onError: future._completeError,
         onDone: () {
-          future._complete(result);
+          future.«f:_complete»(result);
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -1045,7 +1045,7 @@
    * [futureValue].
    */»
   «t:Future»<«t:E»> «v:drain»<«t:E»>([«t:E» «v:futureValue»]) =>
-      listen(«c:null», cancelOnError: «c:true»).asFuture<«t:E»>(futureValue);
+      «f:listen»(«c:null», cancelOnError: «c:true»).asFuture<«t:E»>(futureValue);
 
   «x:/**
    * Provides at most the first [count] data events of this stream.
@@ -1094,7 +1094,7 @@
    * For a broadcast stream, the events are only tested from the time
    * the returned stream is listened to.
    */»
-  «t:Stream»<«t:T»> «f:takeWhile»(«t:bool» test(«t:T» «v:element»)) {
+  «t:Stream»<«t:T»> «f:takeWhile»(«t:bool» «f:test»(«t:T» «v:element»)) {
     «k:return» «k:new» «t:_TakeWhileStream»<«t:T»>(«k:this», test);
   }
 
@@ -1135,7 +1135,7 @@
    * For a broadcast stream, the events are only tested from the time
    * the returned stream is listened to.
    */»
-  «t:Stream»<«t:T»> «f:skipWhile»(«t:bool» test(«t:T» «v:element»)) {
+  «t:Stream»<«t:T»> «f:skipWhile»(«t:bool» «f:test»(«t:T» «v:element»)) {
     «k:return» «k:new» «t:_SkipWhileStream»<«t:T»>(«k:this», test);
   }
 
@@ -1160,7 +1160,7 @@
    * If a broadcast stream is listened to more than once, each subscription
    * will individually perform the `equals` test.
    */»
-  «t:Stream»<«t:T»> «f:distinct»([«t:bool» equals(«t:T» «v:previous», «t:T» «v:next»)]) {
+  «t:Stream»<«t:T»> «f:distinct»([«t:bool» «f:equals»(«t:T» «v:previous», «t:T» «v:next»)]) {
     «k:return» «k:new» «t:_DistinctStream»<«t:T»>(«k:this», equals);
   }
 
@@ -1185,16 +1185,16 @@
   «t:Future»<«t:T»> «b:get» «v:first» {
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»<«t:T»>();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
-          _cancelAndValue(subscription, future, value);
+          «f:_cancelAndValue»(subscription, future, value);
         },
         onError: future._completeError,
         onDone: () {
           «k:try» {
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1215,7 +1215,7 @@
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»<«t:T»>();
     «t:T» «v:result»;
     «t:bool» «v:foundResult» = «c:false»;
-    listen(
+    «f:listen»(
         («t:T» «v:value») {
           foundResult = «c:true»;
           result = value;
@@ -1223,13 +1223,13 @@
         onError: future._completeError,
         onDone: () {
           «k:if» (foundResult) {
-            future._complete(result);
+            future.«f:_complete»(result);
             «k:return»;
           }
           «k:try» {
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1251,14 +1251,14 @@
     «t:T» «v:result»;
     «t:bool» «v:foundResult» = «c:false»;
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
           «k:if» (foundResult) {
-            «x:// This is the second element we get.
+            «m:// »«x:This is the second element we get.
 »            «k:try» {
-              «k:throw» «t:IterableElementError».tooMany();
+              «k:throw» «t:IterableElementError».«f:tooMany»();
             } «k:catch» («v:e», «v:s») {
-              _cancelAndErrorWithReplacement(subscription, future, e, s);
+              «f:_cancelAndErrorWithReplacement»(subscription, future, e, s);
             }
             «k:return»;
           }
@@ -1268,13 +1268,13 @@
         onError: future._completeError,
         onDone: () {
           «k:if» (foundResult) {
-            future._complete(result);
+            future.«f:_complete»(result);
             «k:return»;
           }
           «k:try» {
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1306,27 +1306,27 @@
    * with no [orElse] function provided,
    * the returned future is completed with an error.
    */»
-  «t:Future»<«t:T»> «f:firstWhere»(«t:bool» test(«t:T» «v:element»), {«t:T» orElse()}) {
+  «t:Future»<«t:T»> «f:firstWhere»(«t:bool» «f:test»(«t:T» «v:element»), {«t:T» «f:orElse»()}) {
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»();
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
-          _runUserCode(() => test(value), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => «f:test»(value), («t:bool» «v:isMatch») {
             «k:if» (isMatch) {
-              _cancelAndValue(subscription, future, value);
+              «f:_cancelAndValue»(subscription, future, value);
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
           «k:if» (orElse != «c:null») {
-            _runUserCode(orElse, future._complete, future._completeError);
+            «f:_runUserCode»(orElse, future._complete, future._completeError);
             «k:return»;
           }
           «k:try» {
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1344,34 +1344,34 @@
    * That means that a non-error result cannot be provided before this stream
    * is done.
    */»
-  «t:Future»<«t:T»> «f:lastWhere»(«t:bool» test(«t:T» «v:element»), {«t:T» orElse()}) {
+  «t:Future»<«t:T»> «f:lastWhere»(«t:bool» «f:test»(«t:T» «v:element»), {«t:T» «f:orElse»()}) {
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»();
     «t:T» «v:result»;
     «t:bool» «v:foundResult» = «c:false»;
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
-          _runUserCode(() => «c:true» == test(value), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => «c:true» == «f:test»(value), («t:bool» «v:isMatch») {
             «k:if» (isMatch) {
               foundResult = «c:true»;
               result = value;
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
           «k:if» (foundResult) {
-            future._complete(result);
+            future.«f:_complete»(result);
             «k:return»;
           }
           «k:if» (orElse != «c:null») {
-            _runUserCode(orElse, future._complete, future._completeError);
+            «f:_runUserCode»(orElse, future._complete, future._completeError);
             «k:return»;
           }
           «k:try» {
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1384,42 +1384,42 @@
    * Like [lastWhere], except that it is an error if more than one
    * matching element occurs in this stream.
    */»
-  «t:Future»<«t:T»> «f:singleWhere»(«t:bool» test(«t:T» «v:element»), {«t:T» orElse()}) {
+  «t:Future»<«t:T»> «f:singleWhere»(«t:bool» «f:test»(«t:T» «v:element»), {«t:T» «f:orElse»()}) {
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»<«t:T»>();
     «t:T» «v:result»;
     «t:bool» «v:foundResult» = «c:false»;
     «t:StreamSubscription» «v:subscription»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
-          _runUserCode(() => «c:true» == test(value), («t:bool» «v:isMatch») {
+          «f:_runUserCode»(() => «c:true» == «f:test»(value), («t:bool» «v:isMatch») {
             «k:if» (isMatch) {
               «k:if» (foundResult) {
                 «k:try» {
-                  «k:throw» «t:IterableElementError».tooMany();
+                  «k:throw» «t:IterableElementError».«f:tooMany»();
                 } «k:catch» («v:e», «v:s») {
-                  _cancelAndErrorWithReplacement(subscription, future, e, s);
+                  «f:_cancelAndErrorWithReplacement»(subscription, future, e, s);
                 }
                 «k:return»;
               }
               foundResult = «c:true»;
               result = value;
             }
-          }, _cancelAndErrorClosure(subscription, future));
+          }, «f:_cancelAndErrorClosure»(subscription, future));
         },
         onError: future._completeError,
         onDone: () {
           «k:if» (foundResult) {
-            future._complete(result);
+            future.«f:_complete»(result);
             «k:return»;
           }
           «k:try» {
             «k:if» (orElse != «c:null») {
-              _runUserCode(orElse, future._complete, future._completeError);
+              «f:_runUserCode»(orElse, future._complete, future._completeError);
               «k:return»;
             }
-            «k:throw» «t:IterableElementError».noElement();
+            «k:throw» «t:IterableElementError».«f:noElement»();
           } «k:catch» («v:e», «v:s») {
-            _completeWithErrorCallback(future, e, s);
+            «f:_completeWithErrorCallback»(future, e, s);
           }
         },
         cancelOnError: «c:true»);
@@ -1443,23 +1443,23 @@
    * with a [RangeError].
    */»
   «t:Future»<«t:T»> «f:elementAt»(«t:int» «v:index») {
-    «t:ArgumentError».checkNotNull(index, «s:"index"»);
-    «t:RangeError».checkNotNegative(index, «s:"index"»);
+    «t:ArgumentError».«f:checkNotNull»(index, «s:"index"»);
+    «t:RangeError».«f:checkNotNegative»(index, «s:"index"»);
     «t:_Future»<«t:T»> «v:future» = «k:new» «t:_Future»<«t:T»>();
     «t:StreamSubscription» «v:subscription»;
     «t:int» «v:elementIndex» = «c:0»;
-    subscription = «k:this».listen(
+    subscription = «k:this».«f:listen»(
         («t:T» «v:value») {
           «k:if» (index == elementIndex) {
-            _cancelAndValue(subscription, future, value);
+            «f:_cancelAndValue»(subscription, future, value);
             «k:return»;
           }
           elementIndex += «c:1»;
         },
         onError: future._completeError,
         onDone: () {
-          future._completeError(
-              «k:new» «t:RangeError».index(index, «k:this», «s:"index"», «c:null», elementIndex));
+          future.«f:_completeError»(
+              «k:new» «t:RangeError».«f:index»(index, «k:this», «s:"index"», «c:null», elementIndex));
         },
         cancelOnError: «c:true»);
     «k:return» future;
@@ -1492,64 +1492,64 @@
    * will have its individually timer that starts counting on listen,
    * and the subscriptions' timers can be paused individually.
    */»
-  «t:Stream»<«t:T»> «f:timeout»(«t:Duration» «v:timeLimit», {«t:void» onTimeout(«t:EventSink»<«t:T»> «v:sink»)}) {
+  «t:Stream»<«t:T»> «f:timeout»(«t:Duration» «v:timeLimit», {«t:void» «f:onTimeout»(«t:EventSink»<«t:T»> «v:sink»)}) {
     «t:_StreamControllerBase»<«t:T»> «v:controller»;
-    «x:// The following variables are set on listen.
+    «m:// »«x:The following variables are set on listen.
 »    «t:StreamSubscription»<«t:T»> «v:subscription»;
     «t:Timer» «v:timer»;
     «t:Zone» «v:zone»;
     «t:_TimerCallback» «v:timeout»;
 
     «t:void» «f:onData»(«t:T» «v:event») {
-      timer.cancel();
-      controller.add(event);
-      timer = zone.createTimer(timeLimit, timeout);
+      timer.«f:cancel»();
+      controller.«f:add»(event);
+      timer = zone.«f:createTimer»(timeLimit, timeout);
     }
 
     «t:void» «f:onError»(«v:error», «t:StackTrace» «v:stackTrace») {
-      timer.cancel();
+      timer.«f:cancel»();
       «k:assert»(controller «k:is» «t:_StreamController» ||
           controller «k:is» «t:_BroadcastStreamController»);
-      controller._addError(error, stackTrace); «x:// Avoid Zone error replacement.
-»      timer = zone.createTimer(timeLimit, timeout);
+      controller.«f:_addError»(error, stackTrace); «m:// »«x:Avoid Zone error replacement.
+»      timer = zone.«f:createTimer»(timeLimit, timeout);
     }
 
     «t:void» «f:onDone»() {
-      timer.cancel();
-      controller.close();
+      timer.«f:cancel»();
+      controller.«f:close»();
     }
 
     «t:void» «f:onListen»() {
-      «x:// This is the onListen callback for of controller.
-»      «x:// It runs in the same zone that the subscription was created in.
-»      «x:// Use that zone for creating timers and running the onTimeout
-»      «x:// callback.
+      «m:// »«x:This is the onListen callback for of controller.
+»      «m:// »«x:It runs in the same zone that the subscription was created in.
+»      «m:// »«x:Use that zone for creating timers and running the onTimeout
+»      «m:// »«x:callback.
 »      zone = «t:Zone».current;
       «k:if» (onTimeout == «c:null») {
         timeout = () {
-          controller.addError(
+          controller.«f:addError»(
               «k:new» «t:TimeoutException»(«s:"No stream event"», timeLimit), «c:null»);
         };
       } «k:else» {
-        «x:// TODO(floitsch): the return type should be 'void', and the type
-»        «x:// should be inferred.
+        «m:// »«x:TODO(floitsch): the return type should be 'void', and the type
+»        «m:// »«x:should be inferred.
 »        «k:var» «v:registeredOnTimeout» =
             zone.registerUnaryCallback<«b:dynamic», «t:EventSink»<«t:T»>>(onTimeout);
         «k:var» «v:wrapper» = «k:new» «t:_ControllerEventSinkWrapper»<«t:T»>(«c:null»);
         timeout = () {
-          wrapper._sink = controller; «x:// Only valid during call.
-»          zone.runUnaryGuarded(registeredOnTimeout, wrapper);
+          wrapper._sink = controller; «m:// »«x:Only valid during call.
+»          zone.«f:runUnaryGuarded»(registeredOnTimeout, wrapper);
           wrapper._sink = «c:null»;
         };
       }
 
-      subscription = «k:this».listen(onData, onError: onError, onDone: onDone);
-      timer = zone.createTimer(timeLimit, timeout);
+      subscription = «k:this».«f:listen»(onData, onError: onError, onDone: onDone);
+      timer = zone.«f:createTimer»(timeLimit, timeout);
     }
 
     «t:Future» «f:onCancel»() {
-      timer.cancel();
-      «t:Future» «v:result» = subscription.cancel();
+      timer.«f:cancel»();
+      «t:Future» «v:result» = subscription.«f:cancel»();
       subscription = «c:null»;
       «k:return» result;
     }
@@ -1557,12 +1557,12 @@
     controller = isBroadcast
         ? «k:new» «t:_SyncBroadcastStreamController»<«t:T»>(onListen, onCancel)
         : «k:new» «t:_SyncStreamController»<«t:T»>(onListen, () {
-            «x:// Don't null the timer, onCancel may call cancel again.
-»            timer.cancel();
-            subscription.pause();
+            «m:// »«x:Don't null the timer, onCancel may call cancel again.
+»            timer.«f:cancel»();
+            subscription.«f:pause»();
           }, () {
-            subscription.resume();
-            timer = zone.createTimer(timeLimit, timeout);
+            subscription.«f:resume»();
+            timer = zone.«f:createTimer»(timeLimit, timeout);
           }, onCancel);
     «k:return» controller.stream;
   }
@@ -1615,7 +1615,7 @@
    * This method replaces the current handler set by the invocation of
    * [Stream.listen] or by a previous call to [onData].
    */»
-  «t:void» «f:onData»(«t:void» handleData(«t:T» «v:data»));
+  «t:void» «f:onData»(«t:void» «f:handleData»(«t:T» «v:data»));
 
   «x:/**
    * Replaces the error event handler of this subscription.
@@ -1645,7 +1645,7 @@
    * This method replaces the current handler set by the invocation of
    * [Stream.listen], by calling [asFuture], or by a previous call to [onDone].
    */»
-  «t:void» «f:onDone»(«t:void» handleDone());
+  «t:void» «f:onDone»(«t:void» «f:handleDone»());
 
   «x:/**
    * Request that the stream pauses events until further notice.
@@ -1765,18 +1765,18 @@
 
   «k:const» «t:StreamView»(«t:Stream»<«t:T»> «v:stream»)
       : _stream = stream,
-        «k:super»._internal();
+        «k:super».«f:_internal»();
 
   «t:bool» «b:get» «v:isBroadcast» => _stream.isBroadcast;
 
   «t:Stream»<«t:T»> «f:asBroadcastStream»(
-          {«t:void» onListen(«t:StreamSubscription»<«t:T»> «v:subscription»),
-          «t:void» onCancel(«t:StreamSubscription»<«t:T»> «v:subscription»)}) =>
-      _stream.asBroadcastStream(onListen: onListen, onCancel: onCancel);
+          {«t:void» «f:onListen»(«t:StreamSubscription»<«t:T»> «v:subscription»),
+          «t:void» «f:onCancel»(«t:StreamSubscription»<«t:T»> «v:subscription»)}) =>
+      _stream.«f:asBroadcastStream»(onListen: onListen, onCancel: onCancel);
 
-  «t:StreamSubscription»<«t:T»> «f:listen»(«t:void» onData(«t:T» «v:value»),
-      {«b:Function» «v:onError», «t:void» onDone(), «t:bool» «v:cancelOnError»}) {
-    «k:return» _stream.listen(onData,
+  «t:StreamSubscription»<«t:T»> «f:listen»(«t:void» «f:onData»(«t:T» «v:value»),
+      {«b:Function» «v:onError», «t:void» «f:onDone»(), «t:bool» «v:cancelOnError»}) {
+    «k:return» _stream.«f:listen»(onData,
         onError: onError, onDone: onDone, cancelOnError: cancelOnError);
   }
 }
@@ -1977,7 +1977,7 @@
    * ```
    */»
   «k:const» «b:factory» «t:StreamTransformer»(
-          «t:StreamSubscription»<«t:T»> onListen(
+          «t:StreamSubscription»<«t:T»> «f:onListen»(
               «t:Stream»<«t:S»> «v:stream», «t:bool» «v:cancelOnError»)) =
       «t:_StreamSubscriptionTransformer»<«t:S», «t:T»>;
 
@@ -2027,10 +2027,10 @@
    * // Error 6: Worst
    * ```
    */»
-  «b:factory» «t:StreamTransformer».fromHandlers(
-      {«t:void» handleData(«t:S» «v:data», «t:EventSink»<«t:T»> «v:sink»),
-      «t:void» handleError(«t:Object» «v:error», «t:StackTrace» «v:stackTrace», «t:EventSink»<«t:T»> «v:sink»),
-      «t:void» handleDone(«t:EventSink»<«t:T»> «v:sink»)}) = «t:_StreamHandlerTransformer»<«t:S», «t:T»>;
+  «b:factory» «t:StreamTransformer».«f:fromHandlers»(
+      {«t:void» «f:handleData»(«t:S» «v:data», «t:EventSink»<«t:T»> «v:sink»),
+      «t:void» «f:handleError»(«t:Object» «v:error», «t:StackTrace» «v:stackTrace», «t:EventSink»<«t:T»> «v:sink»),
+      «t:void» «f:handleDone»(«t:EventSink»<«t:T»> «v:sink»)}) = «t:_StreamHandlerTransformer»<«t:S», «t:T»>;
 
   «x:/**
    * Creates a [StreamTransformer] based on a [bind] callback.
@@ -2045,7 +2045,7 @@
    * ```
    */»
   «c:@Since»(«s:"2.1"»)
-  «b:factory» «t:StreamTransformer».fromBind(«t:Stream»<«t:T»> «b:Function»(«t:Stream»<«t:S»>) bind) =
+  «b:factory» «t:StreamTransformer».«f:fromBind»(«t:Stream»<«t:T»> «b:Function»(«t:Stream»<«t:S»>) bind) =
       «t:_StreamBindTransformer»<«t:S», «t:T»>;
 
   «x:/**
@@ -2129,8 +2129,8 @@
 «b:abstract» «k:class» «t:StreamIterator»<«t:T»> {
   «x:/** Create a [StreamIterator] on [stream]. */»
   «b:factory» «t:StreamIterator»(«t:Stream»<«t:T»> «v:stream»)
-      «x:// TODO(lrn): use redirecting factory constructor when type
-»      «x:// arguments are supported.
+      «m:// »«x:TODO(lrn): use redirecting factory constructor when type
+»      «m:// »«x:arguments are supported.
 »      =>
       «k:new» «t:_StreamIterator»<«t:T»>(stream);
 
@@ -2192,14 +2192,14 @@
   «t:_ControllerEventSinkWrapper»(«k:this»._sink);
 
   «t:void» «f:add»(«t:T» «v:data») {
-    _sink.add(data);
+    _sink.«f:add»(data);
   }
 
   «t:void» «f:addError»(«v:error», [«t:StackTrace» «v:stackTrace»]) {
-    _sink.addError(error, stackTrace);
+    _sink.«f:addError»(error, stackTrace);
   }
 
   «t:void» «f:close»() {
-    _sink.close();
+    _sink.«f:close»();
   }
 }

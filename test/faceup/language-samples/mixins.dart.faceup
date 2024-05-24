@@ -1,7 +1,7 @@
 «k:class» «t:Piloted» {
   «t:int» «v:astronauts» = «c:1»;
   «t:void» «f:describeCrew»() {
-    print(«s:'Number of astronauts: »«v:$astronauts»«s:'»);
+    «f:print»(«s:'Number of astronauts: »«v:$astronauts»«s:'»);
   }
 }
 

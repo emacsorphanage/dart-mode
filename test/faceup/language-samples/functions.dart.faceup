@@ -1,8 +1,8 @@
 «t:int» «f:fibonacci»(«t:int» «v:n») {
   «k:if» (n == «c:0» || n == «c:1») «k:return» n;
-  «k:return» fibonacci(n - «c:1») + fibonacci(n - «c:2»);
+  «k:return» «f:fibonacci»(n - «c:1») + «f:fibonacci»(n - «c:2»);
 }
 
-«k:var» «v:result» = fibonacci(«c:20»);
+«k:var» «v:result» = «f:fibonacci»(«c:20»);
 
-flybyObjects.where((«v:name») => name.contains(«s:'turn'»)).forEach(print);
+flybyObjects.«f:where»((«v:name») => name.«f:contains»(«s:'turn'»)).«f:forEach»(print);
