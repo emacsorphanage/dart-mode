@@ -1,3 +1,4 @@
+(require 'dart-mode)
 
 (defun dart-ert-test-indentation-of-file (file)
   (with-temp-buffer
