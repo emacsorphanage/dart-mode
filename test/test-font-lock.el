@@ -1,3 +1,4 @@
+(require 'dart-mode)
 (require 'faceup)
 
 (defvar dart-font-lock-test-dir (faceup-this-file-directory))
