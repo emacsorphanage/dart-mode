@@ -2,17 +2,17 @@
   «t:String» «v:name»;
   «t:DateTime» «v:launchDate»;
 
-  «x:// Constructor, with syntactic sugar for assignment to members.
+  «m:// »«x:Constructor, with syntactic sugar for assignment to members.
 »  «t:Spacecraft»(«k:this».«v:name», «k:this».«v:launchDate») {
-    «x:// Initialization code goes here.
+    «m:// »«x:Initialization code goes here.
 »  }
 
-  «x:// Named constructor that forwards to the default one.
+  «m:// »«x:Named constructor that forwards to the default one.
 »  «t:Spacecraft».unlaunched(«t:String» «v:name») : «k:this»(name, «c:null»);
 
-  «t:int» «b:get» «v:launchYear» => launchDate?.year; «x:// read-only non-final property
+  «t:int» «b:get» «v:launchYear» => launchDate?.year; «m:// »«x:read-only non-final property
 »
-  «x:// Method.
+  «m:// »«x:Method.
 »  «t:void» «f:describe»() {
     print(«s:'Spacecraft: »«v:$name»«s:'»);
     «k:if» (launchDate != «c:null») {
