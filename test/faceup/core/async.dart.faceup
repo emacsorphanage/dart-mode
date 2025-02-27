@@ -1,12 +1,12 @@
-«x:// Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
+«m:// »«x:Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
+»«m:// »«x:for details. All rights reserved. Use of this source code is governed by a
+»«m:// »«x:BSD-style license that can be found in the LICENSE file.
 »
 «b:part» of dart.«k:async»;
 
-«x:// -------------------------------------------------------------------
-// Core Stream types
-// -------------------------------------------------------------------
+«m:// »«x:-------------------------------------------------------------------
+»«m:// »«x:Core Stream types
+»«m:// »«x:-------------------------------------------------------------------
 »
 «b:typedef» «t:void» «t:_TimerCallback»();
 
@@ -106,9 +106,9 @@
    * data or error, and then close with a done-event.
    */»
   «b:factory» «t:Stream».«f:fromFuture»(«t:Future»<«t:T»> «v:future») {
-    «x:// Use the controller's buffering to fill in the value even before
-»    «x:// the stream has a listener. For a single value, it's not worth it
-»    «x:// to wait for a listener before doing the `then` on the future.
+    «m:// »«x:Use the controller's buffering to fill in the value even before
+»    «m:// »«x:the stream has a listener. For a single value, it's not worth it
+»    «m:// »«x:to wait for a listener before doing the `then` on the future.
 »    «t:_StreamController»<«t:T»> «v:controller» = «k:new» «t:StreamController»<«t:T»>(«k:sync»: «c:true»);
     future.then((«v:value») {
       controller._add(value);
@@ -138,9 +138,9 @@
   «b:factory» «t:Stream».«f:fromFutures»(«t:Iterable»<«t:Future»<«t:T»>> «v:futures») {
     «t:_StreamController»<«t:T»> «v:controller» = «k:new» «t:StreamController»<«t:T»>(«k:sync»: «c:true»);
     «t:int» «v:count» = «c:0»;
-    «x:// Declare these as variables holding closures instead of as
-»    «x:// function declarations.
-»    «x:// This avoids creating a new closure from the functions for each future.
+    «m:// »«x:Declare these as variables holding closures instead of as
+»    «m:// »«x:function declarations.
+»    «m:// »«x:This avoids creating a new closure from the functions for each future.
 »    «k:var» «v:onValue» = («t:T» «v:value») {
       «k:if» (!controller.isClosed) {
         controller._add(value);
@@ -153,14 +153,14 @@
         «k:if» (--count == «c:0») controller._closeUnchecked();
       }
     };
-    «x:// The futures are already running, so start listening to them immediately
-»    «x:// (instead of waiting for the stream to be listened on).
-»    «x:// If we wait, we might not catch errors in the futures in time.
+    «m:// »«x:The futures are already running, so start listening to them immediately
+»    «m:// »«x:(instead of waiting for the stream to be listened on).
+»    «m:// »«x:If we wait, we might not catch errors in the futures in time.
 »    «k:for» («k:var» «v:future» «k:in» futures) {
       count++;
       future.then(onValue, onError: onError);
     }
-    «x:// Use schedule microtask since controller is sync.
+    «m:// »«x:Use schedule microtask since controller is sync.
 »    «k:if» (count == «c:0») scheduleMicrotask(controller.close);
     «k:return» controller.stream;
   }
@@ -197,7 +197,7 @@
     «t:Timer» «v:timer»;
     «t:int» «v:computationCount» = «c:0»;
     «t:StreamController»<«t:T»> «v:controller»;
-    «x:// Counts the time that the Stream was running (and not paused).
+    «m:// »«x:Counts the time that the Stream was running (and not paused).
 »    «t:Stopwatch» «v:watch» = «k:new» «t:Stopwatch»();
 
     «t:void» «f:sendEvent»() {
@@ -520,7 +520,7 @@
           controller.addStream(newStream).whenComplete(subscription.resume);
         }
       },
-          onError: controller._addError, «x:// Avoid Zone error replacement.
+          onError: controller._addError, «m:// »«x:Avoid Zone error replacement.
 »          onDone: controller.close);
     }
 
@@ -695,9 +695,9 @@
         onDone: () {
           «k:if» (!seenFirst) {
             «k:try» {
-              «x:// Throw and recatch, instead of just doing
-»              «x://  _completeWithErrorCallback, e, theError, StackTrace.current),
-»              «x:// to ensure that the stackTrace is set on the error.
+              «m:// »«x:Throw and recatch, instead of just doing
+»              «m://  »«x:_completeWithErrorCallback, e, theError, StackTrace.current),
+»              «m:// »«x:to ensure that the stackTrace is set on the error.
 »              «k:throw» «t:IterableElementError».noElement();
             } «k:catch» («v:e», «v:s») {
               _completeWithErrorCallback(result, e, s);
@@ -830,7 +830,7 @@
     «t:StreamSubscription» «v:subscription»;
     subscription = «k:this».listen(
         («t:T» «v:element») {
-          «x:// TODO(floitsch): the type should be 'void' and inferred.
+          «m:// »«x:TODO(floitsch): the type should be 'void' and inferred.
 »          _runUserCode<«b:dynamic»>(() => action(element), («v:_») {},
               _cancelAndErrorClosure(subscription, future));
         },
@@ -1254,7 +1254,7 @@
     subscription = «k:this».listen(
         («t:T» «v:value») {
           «k:if» (foundResult) {
-            «x:// This is the second element we get.
+            «m:// »«x:This is the second element we get.
 »            «k:try» {
               «k:throw» «t:IterableElementError».tooMany();
             } «k:catch» («v:e», «v:s») {
@@ -1494,7 +1494,7 @@
    */»
   «t:Stream»<«t:T»> «f:timeout»(«t:Duration» «v:timeLimit», {«t:void» onTimeout(«t:EventSink»<«t:T»> «v:sink»)}) {
     «t:_StreamControllerBase»<«t:T»> «v:controller»;
-    «x:// The following variables are set on listen.
+    «m:// »«x:The following variables are set on listen.
 »    «t:StreamSubscription»<«t:T»> «v:subscription»;
     «t:Timer» «v:timer»;
     «t:Zone» «v:zone»;
@@ -1510,7 +1510,7 @@
       timer.cancel();
       «k:assert»(controller «k:is» «t:_StreamController» ||
           controller «k:is» «t:_BroadcastStreamController»);
-      controller._addError(error, stackTrace); «x:// Avoid Zone error replacement.
+      controller._addError(error, stackTrace); «m:// »«x:Avoid Zone error replacement.
 »      timer = zone.createTimer(timeLimit, timeout);
     }
 
@@ -1520,10 +1520,10 @@
     }
 
     «t:void» «f:onListen»() {
-      «x:// This is the onListen callback for of controller.
-»      «x:// It runs in the same zone that the subscription was created in.
-»      «x:// Use that zone for creating timers and running the onTimeout
-»      «x:// callback.
+      «m:// »«x:This is the onListen callback for of controller.
+»      «m:// »«x:It runs in the same zone that the subscription was created in.
+»      «m:// »«x:Use that zone for creating timers and running the onTimeout
+»      «m:// »«x:callback.
 »      zone = «t:Zone».current;
       «k:if» (onTimeout == «c:null») {
         timeout = () {
@@ -1531,13 +1531,13 @@
               «k:new» «t:TimeoutException»(«s:"No stream event"», timeLimit), «c:null»);
         };
       } «k:else» {
-        «x:// TODO(floitsch): the return type should be 'void', and the type
-»        «x:// should be inferred.
+        «m:// »«x:TODO(floitsch): the return type should be 'void', and the type
+»        «m:// »«x:should be inferred.
 »        «k:var» «v:registeredOnTimeout» =
             zone.registerUnaryCallback<«b:dynamic», «t:EventSink»<«t:T»>>(onTimeout);
         «k:var» «v:wrapper» = «k:new» «t:_ControllerEventSinkWrapper»<«t:T»>(«c:null»);
         timeout = () {
-          wrapper._sink = controller; «x:// Only valid during call.
+          wrapper._sink = controller; «m:// »«x:Only valid during call.
 »          zone.runUnaryGuarded(registeredOnTimeout, wrapper);
           wrapper._sink = «c:null»;
         };
@@ -1557,7 +1557,7 @@
     controller = isBroadcast
         ? «k:new» «t:_SyncBroadcastStreamController»<«t:T»>(onListen, onCancel)
         : «k:new» «t:_SyncStreamController»<«t:T»>(onListen, () {
-            «x:// Don't null the timer, onCancel may call cancel again.
+            «m:// »«x:Don't null the timer, onCancel may call cancel again.
 »            timer.cancel();
             subscription.pause();
           }, () {
@@ -2129,8 +2129,8 @@
 «b:abstract» «k:class» «t:StreamIterator»<«t:T»> {
   «x:/** Create a [StreamIterator] on [stream]. */»
   «b:factory» «t:StreamIterator»(«t:Stream»<«t:T»> «v:stream»)
-      «x:// TODO(lrn): use redirecting factory constructor when type
-»      «x:// arguments are supported.
+      «m:// »«x:TODO(lrn): use redirecting factory constructor when type
+»      «m:// »«x:arguments are supported.
 »      =>
       «k:new» «t:_StreamIterator»<«t:T»>(stream);
 
