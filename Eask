@@ -1,3 +1,5 @@
+;; -*- mode: eask; lexical-binding: t -*-
+
 (package "dart-mode"
          "1.0.7"
          "Major mode for editing Dart files")
