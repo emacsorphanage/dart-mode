@@ -1,5 +1,5 @@
 «k:class» «t:MockSpaceship» «b:implements» «t:Spacecraft» {
-  «x:// ···
+  «m:// »«x:···
 »}
 
 «b:abstract» «k:class» «t:Describable» {
