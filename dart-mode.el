@@ -543,7 +543,7 @@ untyped parameters. For example, in
                                            space)
                                       "super")
                                   ?\()
-                              (point-at-bol))
+                              (line-beginning-position))
           (condition-case nil
               (up-list)
             (scan-error (throw 'result nil)))
