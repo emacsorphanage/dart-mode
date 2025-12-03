@@ -4,7 +4,7 @@
          "1.0.7"
          "Major mode for editing Dart files")
 
-(website-url "https://github.com/bradyt/dart-mode")
+(website-url "https://github.com/emacsorphanage/dart-mode")
 (keywords "languages")
 
 (package-file "dart-mode.el")
