@@ -14,7 +14,7 @@
 (source 'gnu)
 (source 'melpa)
 
-(depends-on "emacs" "24.3")
+(depends-on "emacs" "27.1")
 
 (development
  (depends-on "ert-runner")
